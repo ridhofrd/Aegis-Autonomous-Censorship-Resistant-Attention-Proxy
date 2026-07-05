@@ -47,6 +47,29 @@ interface PublisherProfile {
   description: string;
   publisherAddress: string;
 }
+interface RssFeed {
+  id: string;
+  name: string;
+  url: string;
+}
+
+const DEFAULT_RSS_FEEDS: RssFeed[] = [
+  { id: "rss-1", name: "New York Times", url: "https://rss.nytimes.com/services/xml/rss/nyt/World.xml" },
+  { id: "rss-2", name: "BBC News", url: "http://feeds.bbci.co.uk/news/world/rss.xml" },
+  { id: "rss-3", name: "CoinDesk", url: "https://www.coindesk.com/arc/outboundfeeds/rss/" }
+];
+
+interface Persona {
+  id: string;
+  name: string;
+  instruction: string;
+}
+
+const DEFAULT_PERSONAS: Persona[] = [
+  { id: "p-1", name: "Standard Investigator", instruction: "Gather diverse independent viewpoints." },
+  { id: "p-2", name: "Privacy Advocate", instruction: "Analyze sources through the lens of data sovereignty and surveillance resistance." },
+  { id: "p-3", name: "On-Chain Verifier", instruction: "Prioritize hard blockchain data and cryptographically signed journalism over narrative." }
+];
 
 // Mock mapping of publishers to testnet stellar addresses (for receiving USDC)
 const PUB_ADDR_1 = "GA2W6XG2BOMW4J523WTYO6Z4V7U4SBRXYXQ3VDFZZ6T32H35H6S5X6M7";
@@ -75,7 +98,7 @@ export default function UnifiedDashboard() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
 
   // UI State
-  const [activeTab, setActiveTab] = useState<"feed" | "chat" | "directory" | "vault">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "curator" | "directory" | "chat" | "persona" | "vault">("feed");
 
   // Feed State
   const [provider, setProvider] = useState<string>("nytimes");
@@ -97,6 +120,18 @@ export default function UnifiedDashboard() {
   // Directory & Subscription State
   const [activeTopic, setActiveTopic] = useState<string>("All");
   const [subscribedIds, setSubscribedIds] = useState<string[]>([]);
+  const [customRssFeeds, setCustomRssFeeds] = useState<RssFeed[]>(DEFAULT_RSS_FEEDS);
+  const [newRssName, setNewRssName] = useState("");
+  const [newRssUrl, setNewRssUrl] = useState("");
+
+  // Persona State
+  const [personas, setPersonas] = useState<Persona[]>(DEFAULT_PERSONAS);
+  const [newPersonaName, setNewPersonaName] = useState("");
+  const [newPersonaInstruction, setNewPersonaInstruction] = useState("");
+
+  // Curator State
+  const [curatorArticles, setCuratorArticles] = useState<Article[]>([]);
+  const [loadingCurator, setLoadingCurator] = useState(false);
 
   // Vault Management State
   const [vaultLoading, setVaultLoading] = useState(false);
@@ -148,6 +183,36 @@ export default function UnifiedDashboard() {
     }
     fetchNews();
   }, [publicKey, provider, activeTab]);
+
+  useEffect(() => {
+    if (!publicKey || activeTab !== "curator") return;
+    async function fetchCurated() {
+      setLoadingCurator(true);
+      try {
+        const subscribedUrls = customRssFeeds
+          .filter(feed => subscribedIds.includes(feed.id))
+          .map(feed => feed.url);
+        
+        let urlParam = "";
+        if (subscribedUrls.length > 0) {
+          urlParam = `&urls=${encodeURIComponent(subscribedUrls.join(','))}`;
+        } else {
+          setCuratorArticles([]);
+          setLoadingCurator(false);
+          return;
+        }
+
+        const res = await fetch(`/api/news?urls=${encodeURIComponent(subscribedUrls.join(','))}`);
+        const data = await res.json();
+        if (data.articles) setCuratorArticles(data.articles);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingCurator(false);
+      }
+    }
+    fetchCurated();
+  }, [publicKey, activeTab, subscribedIds, customRssFeeds]);
 
   // --- ATTENTION VAULT LOGIC ---
 
@@ -291,7 +356,7 @@ export default function UnifiedDashboard() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: userMessage, persona: persona })
+        body: JSON.stringify({ prompt: userMessage, persona: personas.find(p => p.name === persona)?.instruction || persona })
       });
       const data = await res.json();
 
@@ -382,16 +447,28 @@ export default function UnifiedDashboard() {
                 Curated Feed
               </button>
               <button
+                onClick={() => setActiveTab("curator")}
+                className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "curator" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
+              >
+                ✨ Personal Curator
+              </button>
+              <button
                 onClick={() => setActiveTab("directory")}
                 className={`px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "directory" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
               >
-                Publishers
+                Directory & RSS
               </button>
               <button
                 onClick={() => setActiveTab("chat")}
                 className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "chat" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
               >
-                ✨ AI Chat
+                AI Chat
+              </button>
+              <button
+                onClick={() => setActiveTab("persona")}
+                className={`px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "persona" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
+              >
+                Personas
               </button>
               <button
                 onClick={() => setActiveTab("vault")}
@@ -638,6 +715,70 @@ export default function UnifiedDashboard() {
                   );
                 })}
               </div>
+
+              <div className="mt-16 mb-8 text-center max-w-2xl mx-auto border-t border-[var(--card-border)] pt-16">
+                <h1 className="text-3xl font-bold mb-3">Custom RSS Feeds</h1>
+                <p className="text-[var(--text-secondary)] mb-8">
+                  Add and subscribe to any standard RSS feed to have it included in your AI Personal Curator.
+                </p>
+                <div className="flex gap-2 max-w-md mx-auto mb-10">
+                  <input
+                    type="text"
+                    value={newRssUrl}
+                    onChange={e => setNewRssUrl(e.target.value)}
+                    placeholder="https://example.com/rss.xml"
+                    className="flex-1 bg-transparent border border-[var(--card-border)] rounded-lg px-4 py-2"
+                  />
+                  <button 
+                    onClick={() => {
+                      if(newRssUrl) {
+                        const id = "rss-" + Date.now();
+                        try {
+                          setCustomRssFeeds(prev => [...prev, { id, name: new URL(newRssUrl).hostname, url: newRssUrl }]);
+                        } catch {
+                          setCustomRssFeeds(prev => [...prev, { id, name: "RSS Feed", url: newRssUrl }]);
+                        }
+                        setSubscribedIds(prev => [...prev, id]);
+                        setNewRssUrl("");
+                      }
+                    }}
+                    className="btn-primary px-4 py-2"
+                  >
+                    Add & Subscribe
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {customRssFeeds.map(feed => {
+                  const isSubscribed = subscribedIds.includes(feed.id);
+                  return (
+                    <div key={feed.id} className={`clean-card flex flex-col h-full border-2 transition-all ${isSubscribed ? "border-[var(--primary)] shadow-lg shadow-[var(--primary)]/10" : "border-transparent"}`}>
+                      <div className="p-6 flex-1">
+                        <div className="flex justify-between items-start mb-3">
+                          <h2 className="text-xl font-bold leading-tight truncate">{feed.name}</h2>
+                          <span className="text-[10px] font-bold px-2 py-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 rounded shrink-0">RSS Feed</span>
+                        </div>
+                        <a href={feed.url} target="_blank" rel="noopener noreferrer" className="text-sm font-mono text-[var(--text-secondary)] hover:text-[var(--primary)] hover:underline mb-4 block truncate">
+                          {feed.url}
+                        </a>
+                      </div>
+                      <div className="border-t border-[var(--card-border)] p-4 bg-black/[0.02] dark:bg-white/[0.02]">
+                        <button
+                          onClick={() => toggleSubscription(feed.id, "")}
+                          disabled={vaultLoading}
+                          className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all flex justify-center items-center gap-2 ${isSubscribed
+                            ? "bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/30"
+                            : "bg-[var(--primary)] text-white hover:opacity-90 shadow-md"
+                            }`}
+                        >
+                          {isSubscribed ? "Subscribed" : "Subscribe"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
 
@@ -656,11 +797,11 @@ export default function UnifiedDashboard() {
                   <select 
                     value={persona}
                     onChange={(e) => setPersona(e.target.value)}
-                    className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-md px-3 py-1.5 text-sm font-semibold text-[var(--primary)] outline-none cursor-pointer focus:border-[var(--primary)]"
+                    className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-md px-3 py-1.5 text-sm font-semibold text-[var(--primary)] outline-none cursor-pointer focus:border-[var(--primary)] max-w-[200px] truncate"
                   >
-                    <option value="Standard Investigator">Standard Investigator</option>
-                    <option value="Privacy Advocate">Privacy Advocate</option>
-                    <option value="On-Chain Verifier">On-Chain Verifier</option>
+                    {personas.map(p => (
+                      <option key={p.id} value={p.name}>{p.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -769,6 +910,105 @@ export default function UnifiedDashboard() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* === TAB 5: PERSONAS === */}
+          {activeTab === "persona" && (
+            <div className="flex flex-col animate-fadeIn max-w-2xl mx-auto w-full">
+              <div className="mb-8 text-center">
+                <h1 className="text-3xl font-bold mb-3">AI Personas</h1>
+                <p className="text-[var(--text-secondary)]">
+                  Create and manage the personas that power your AI proxy's responses and research priorities.
+                </p>
+              </div>
+
+              <div className="clean-card p-6 mb-8 border border-[var(--primary)]/30">
+                <h2 className="text-xl font-bold mb-4">Create New Persona</h2>
+                <div className="flex flex-col gap-4">
+                  <input
+                    type="text"
+                    value={newPersonaName}
+                    onChange={e => setNewPersonaName(e.target.value)}
+                    placeholder="Persona Name (e.g., Cynical Web3 Dev)"
+                    className="w-full bg-transparent border border-[var(--card-border)] rounded-lg px-4 py-2"
+                  />
+                  <textarea
+                    value={newPersonaInstruction}
+                    onChange={e => setNewPersonaInstruction(e.target.value)}
+                    placeholder="Instructions (e.g., Focus entirely on smart contract architectures. Be concise.)"
+                    rows={4}
+                    className="w-full bg-transparent border border-[var(--card-border)] rounded-lg px-4 py-2 resize-none"
+                  />
+                  <button 
+                    onClick={() => {
+                      if(newPersonaName && newPersonaInstruction) {
+                        setPersonas(prev => [...prev, { id: "p-" + Date.now(), name: newPersonaName, instruction: newPersonaInstruction }]);
+                        setNewPersonaName("");
+                        setNewPersonaInstruction("");
+                      }
+                    }}
+                    className="btn-primary py-2"
+                  >
+                    Save Persona
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                {personas.map(p => (
+                  <div key={p.id} className="clean-card p-4">
+                    <h3 className="font-bold text-lg mb-2">{p.name}</h3>
+                    <p className="text-sm text-[var(--text-secondary)]">{p.instruction}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* === TAB 6: PERSONAL CURATOR === */}
+          {activeTab === "curator" && (
+            <div className="flex flex-col animate-fadeIn">
+              <div className="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+                <div>
+                  <h1 className="text-3xl font-bold mb-2">Personal AI Curator</h1>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Highly summarized intelligence combining all your subscribed independent publishers and custom RSS feeds. (Cron jobs simulated for live view).
+                  </p>
+                </div>
+              </div>
+              
+              {loadingCurator ? (
+                <div className="flex justify-center py-20">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)]"></div>
+                </div>
+              ) : curatorArticles.length === 0 ? (
+                <div className="text-center py-20 text-[var(--text-secondary)]">
+                  Subscribe to publishers or RSS feeds in the Directory to see your curated intelligence here.
+                </div>
+              ) : (
+                <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
+                  {curatorArticles.map((article) => (
+                    <div key={article.id} className="clean-card p-6 flex flex-col md:flex-row gap-6 transition-all border border-[var(--primary)]/30">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xs font-semibold px-2 py-1 bg-[var(--primary)] text-white rounded truncate max-w-[150px]">{article.publisher}</span>
+                          <span className="text-xs text-[var(--text-secondary)]">{new Date(article.pubDate).toLocaleDateString()}</span>
+                        </div>
+                        <a href={article.link} target="_blank" rel="noopener noreferrer" className="block hover:underline">
+                          <h2 className="text-xl font-bold mb-2">{article.title}</h2>
+                        </a>
+                        <div className="mt-4 p-4 rounded-lg bg-[var(--card-border)] border border-[var(--primary)]/20">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-bold text-[var(--primary)] uppercase tracking-wider">✨ AI Summary</span>
+                          </div>
+                          <p className="text-sm text-[var(--text-secondary)] leading-relaxed">{article.aiSummary}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

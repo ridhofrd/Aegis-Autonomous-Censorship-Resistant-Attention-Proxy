@@ -12,11 +12,11 @@ const MOCK_ORACLE_SECRET = process.env.NEXT_PUBLIC_MOCK_ORACLE_SECRET || "";
 
 export default function PublisherDashboard() {
   const { theme, toggleTheme } = useTheme();
-  
+
   // Wallet & Trust State
   const [publicKey, setPublicKey] = useState<string | null>(null);
   const [isTrusted, setIsTrusted] = useState(false);
-  
+
   // Onboarding State
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -76,7 +76,7 @@ export default function PublisherDashboard() {
         rpcUrl: "https://soroban-testnet.stellar.org",
         publicKey: publicKey,
       });
-      const stakeAmount = BigInt(100_0000000); 
+      const stakeAmount = BigInt(100_0000000);
       const tx = await trustRegistry.stake({ publisher: publicKey, amount: stakeAmount });
       const result = await tx.signAndSend({
         signTransaction: async (xdr: string) => {
@@ -96,7 +96,7 @@ export default function PublisherDashboard() {
   const verifyEmailAndSubmitProof = async () => {
     if (!publicKey) return alert("Please connect your wallet first!");
     if (!email) return alert("Please enter an institutional email.");
-    
+
     const validDomains = ["@nytimes.com", "@reuters.com", "@bloomberg.com", "@wsj.com", "@independent.io"];
     const isCredible = validDomains.some(domain => email.endsWith(domain));
     if (!isCredible) return alert("Unrecognized institutional domain. Please use a valid credible email.");
@@ -142,7 +142,7 @@ export default function PublisherDashboard() {
   const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!articleUrl || !articleTitle) return;
-    
+
     setIsPublishing(true);
     // Simulate API delay for Aegis AI indexing the article
     await new Promise(res => setTimeout(res, 2000));
@@ -176,14 +176,14 @@ export default function PublisherDashboard() {
       </nav>
 
       <main className="w-full max-w-4xl px-6 animate-fadeIn">
-        
+
         {/* Status Header */}
         <div className="flex flex-col md:flex-row items-start md:items-end justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold mb-2">Publisher Portal</h1>
             <p className="text-sm text-[var(--text-secondary)]">
-              {isTrusted 
-                ? "Your Verified Publisher Dashboard. Publish and track earnings." 
+              {isTrusted
+                ? "Your Verified Publisher Dashboard. Publish and track earnings."
                 : "Prove your credibility to join the registry and receive USDC micropayments."}
             </p>
           </div>
@@ -209,8 +209,8 @@ export default function PublisherDashboard() {
                 <h2 className="text-base font-semibold text-[var(--primary)]">Economic Staking</h2>
               </div>
               <p className="text-sm text-[var(--text-secondary)] mb-6">Lock 100 USDC in the smart contract to gain instant trust via slashable stake. (Alternative to ZK Proof).</p>
-              <button 
-                onClick={handleStake} 
+              <button
+                onClick={handleStake}
                 className="btn-secondary w-full border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white"
                 disabled={staking}
               >
@@ -241,7 +241,7 @@ export default function PublisherDashboard() {
         ) : (
           /* VERIFIED DASHBOARD STATE */
           <div className="flex flex-col gap-8 animate-fadeIn">
-            
+
             {/* Metrics Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="clean-card p-6 border-t-4 border-t-green-500">
@@ -317,7 +317,7 @@ export default function PublisherDashboard() {
                 </div>
               </form>
             </div>
-            
+
           </div>
         )}
 
