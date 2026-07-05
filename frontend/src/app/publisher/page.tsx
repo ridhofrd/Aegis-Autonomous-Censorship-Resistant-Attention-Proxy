@@ -7,8 +7,8 @@ import { useTheme } from "@/components/ThemeProvider";
 import { Keypair } from "@stellar/stellar-sdk";
 import { Client as TrustRegistry, networks } from "trust_registry";
 
-// Hardcoded Mock Oracle Credentials (DO NOT USE IN PRODUCTION)
-const MOCK_ORACLE_SECRET = "SCH7RAX3ATSJAMQKI4J3IWJG5PWVL2YGUREKIYVX3L36NDLLBBPPKDJ6";
+// Mock Oracle Credentials from Environment (DO NOT USE IN PRODUCTION)
+const MOCK_ORACLE_SECRET = process.env.NEXT_PUBLIC_MOCK_ORACLE_SECRET || "";
 
 export default function PublisherDashboard() {
   const { theme, toggleTheme } = useTheme();

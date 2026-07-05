@@ -62,10 +62,10 @@ const MOCK_PUBLISHERS: PublisherProfile[] = [
 
 const TOPICS = ["All", "Tech", "Privacy", "Finance", "Crypto", "Politics"];
 
-// Hardcoded Testnet Agent Credentials for the Demo
-const AGENT_SECRET = "SDG5K2B6Y6A4Y3YDB2GQ2MTHBAF7WE3BGZKMD675C7MC6UCZY4YUN2J3";
-const TRUST_REGISTRY_ID = "CA5K5A5F2V6Y6A4Y3YDB2GQ2MTHBAF7WE3BGZKMD675C7MC6UCZY4YUN";
-const USDC_TOKEN_ID = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+// Contract Addresses from Environment
+const TRUST_REGISTRY_ID = process.env.NEXT_PUBLIC_TRUST_REGISTRY_ID || "";
+const USDC_TOKEN_ID = process.env.NEXT_PUBLIC_USDC_TOKEN_ID || "";
+const AGENT_PUB_KEY = process.env.NEXT_PUBLIC_AGENT_PUB_KEY || "";
 
 export default function UnifiedDashboard() {
   const { theme, toggleTheme } = useTheme();
@@ -162,12 +162,10 @@ export default function UnifiedDashboard() {
 
       // Daily limit: 5 USDC (7 decimals)
       const limit = BigInt(5_0000000);
-      // Hardcoded agent pubkey for demo (derived from AGENT_SECRET if we were doing it right, but here is a mock)
-      const agentPub = "GBLX5W4J523WTYO6Z4V7U4SBRXYXQ3VDFZZ6T32H35H6S5X6M7Y6A4";
 
       const tx = await vault.init({
         owner: publicKey,
-        agent: agentPub,
+        agent: AGENT_PUB_KEY,
         daily_limit: limit,
         trust_registry: TRUST_REGISTRY_ID,
         usdc_token: USDC_TOKEN_ID
