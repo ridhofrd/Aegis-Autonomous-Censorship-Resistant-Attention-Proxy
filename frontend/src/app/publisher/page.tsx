@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { isAllowed, setAllowed, getUserInfo } from "@stellar/freighter-api";
+import { isAllowed, setAllowed, requestAccess } from "@stellar/freighter-api";
 import { useTheme } from "@/components/ThemeProvider";
 
 export default function PublisherDashboard() {
@@ -18,8 +18,13 @@ export default function PublisherDashboard() {
         allowed = await isAllowed();
       }
       if (allowed) {
-        const info = await getUserInfo();
-        setPublicKey(info.publicKey);
+        const { address, error } = await requestAccess();
+        if (address) {
+          setPublicKey(address);
+        } else if (error) {
+          console.error(error);
+          alert(error);
+        }
       }
     } catch (e) {
       console.error(e);
