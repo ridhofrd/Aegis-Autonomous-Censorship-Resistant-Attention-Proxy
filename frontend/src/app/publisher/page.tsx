@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { isAllowed, setAllowed, requestAccess, signTransaction } from "@stellar/freighter-api";
 import { useTheme } from "@/components/ThemeProvider";
@@ -29,6 +29,32 @@ export default function PublisherDashboard() {
 
   // Mock Earnings Data
   const [earnings] = useState({ totalUsdc: "150.50", articlesIndexed: 12, trustScore: 98 });
+
+  // Publisher Articles State
+  const [publishedArticles, setPublishedArticles] = useState<any[]>([]);
+  const [loadingArticles, setLoadingArticles] = useState(false);
+
+  useEffect(() => {
+    if (publicKey && isTrusted) {
+      fetchPublishedArticles(publicKey);
+    }
+  }, [publicKey, isTrusted]);
+
+  const fetchPublishedArticles = async (address: string) => {
+    setLoadingArticles(true);
+    try {
+      const res = await fetch(`/api/publishers/articles?walletAddress=${address}`);
+      const data = await res.json();
+      if (data.articles) {
+        setPublishedArticles(data.articles);
+        // We could also dynamically update earnings.articlesIndexed based on data.articles.length
+      }
+    } catch (e) {
+      console.error("Failed to fetch articles:", e);
+    } finally {
+      setLoadingArticles(false);
+    }
+  };
 
   const fetchTrustStatus = async (address: string) => {
     try {
@@ -352,6 +378,44 @@ export default function PublisherDashboard() {
                   </button>
                 </div>
               </form>
+            </div>
+
+            {/* My Indexed Articles */}
+            <div className="mt-8">
+              <h2 className="text-2xl font-bold mb-6">My Indexed Articles</h2>
+              {loadingArticles ? (
+                <div className="flex justify-center p-10">
+                  <div className="w-8 h-8 border-4 border-[var(--primary)] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : publishedArticles.length === 0 ? (
+                <div className="clean-card p-10 text-center">
+                  <p className="text-[var(--text-secondary)]">No articles found. Have you registered an active RSS feed?</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6">
+                  {publishedArticles.map((article: any) => (
+                    <div key={article.id} className="clean-card p-6 border-l-4 border-l-blue-500">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-xl font-bold leading-tight">{article.title}</h3>
+                        <span className="text-[10px] font-bold px-2 py-1 bg-green-500/10 text-green-600 rounded whitespace-nowrap ml-4">
+                          Trust Score: {article.trustScore}
+                        </span>
+                      </div>
+                      <p className="text-sm font-mono text-[var(--text-secondary)] mb-4">
+                        Indexed: {new Date(article.aegisIndexDate).toLocaleString()} • Ingested {article.timesIngested} times
+                      </p>
+                      
+                      <div className="p-4 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-lg">
+                        <div className="flex items-center gap-2 mb-2 text-[var(--primary)]">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                          <span className="text-xs font-bold uppercase tracking-wider">Aegis AI Summary</span>
+                        </div>
+                        <p className="text-sm italic text-[var(--text-color)]">{article.aiSummary}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </div>
