@@ -19,12 +19,8 @@ export default function PublisherDashboard() {
       }
       if (allowed) {
         const { address, error } = await requestAccess();
-        if (address) {
-          setPublicKey(address);
-        } else if (error) {
-          console.error(error);
-          alert(error);
-        }
+        if (address) setPublicKey(address);
+        else if (error) console.error(error);
       }
     } catch (e) {
       console.error(e);
@@ -33,70 +29,68 @@ export default function PublisherDashboard() {
   };
 
   const submitZKProof = () => {
-    alert("Simulating ZK Proof Submission to Trust Registry...");
-    setTimeout(() => setIsTrusted(true), 1500);
+    setIsTrusted(true);
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex flex-col items-center">
-      <div className="absolute top-0 w-full p-6 flex justify-between items-center z-10 max-w-6xl">
+    <div className="min-h-screen flex flex-col items-center">
+      <nav className="w-full max-w-5xl mx-auto p-6 flex justify-between items-center border-b border-[var(--card-border)] mb-12">
         <Link href="/">
-          <div className="text-2xl font-bold tracking-tighter cursor-pointer" style={{ color: "var(--accent)" }}>
-            Aegis<span style={{ color: "var(--text-color)" }}>.</span>
+          <div className="text-xl font-bold tracking-tight text-[var(--primary)] flex items-center gap-2 cursor-pointer">
+            <div className="w-6 h-6 rounded bg-[var(--primary)] text-white flex items-center justify-center text-xs">A</div>
+            Aegis Publisher
           </div>
         </Link>
-        <div className="flex gap-4">
-          <button onClick={toggleTheme} className="btn-secondary" style={{ padding: "8px 16px", borderRadius: "20px" }}>
-            {theme === "light" ? "🌙" : "☀️"}
+        <div className="flex gap-3">
+          <button onClick={toggleTheme} className="btn-secondary">
+            {theme === "light" ? "Dark" : "Light"}
           </button>
           {!publicKey ? (
-            <button onClick={connectWallet} className="btn-primary" style={{ padding: "8px 16px", borderRadius: "20px" }}>
-              Connect Freighter
-            </button>
+            <button onClick={connectWallet} className="btn-primary">Connect Wallet</button>
           ) : (
-            <div className="btn-secondary" style={{ padding: "8px 16px", borderRadius: "20px" }}>
+            <div className="btn-secondary font-mono text-xs flex items-center">
               {publicKey.substring(0, 5)}...{publicKey.substring(publicKey.length - 4)}
             </div>
           )}
         </div>
-      </div>
+      </nav>
 
-      <main className="z-10 mt-32 w-full max-w-4xl px-4">
-        <h1 className="text-4xl font-extrabold mb-8">Publisher Portal</h1>
+      <main className="w-full max-w-3xl px-6">
+        <h1 className="text-2xl font-bold mb-6">Publisher Portal</h1>
         
-        <div className="glass-card p-8 mb-8 flex flex-col items-center justify-center text-center">
-          <h2 className="text-2xl font-bold mb-2">Trust Status</h2>
-          {isTrusted ? (
-            <div className="mt-4 p-4 px-8 rounded-full border border-green-500 bg-green-500/10 text-green-400 font-bold flex items-center gap-2">
-              <span>✅</span> Verified Publisher
-            </div>
-          ) : (
-            <div className="mt-4 p-4 px-8 rounded-full border border-yellow-500 bg-yellow-500/10 text-yellow-500 font-bold flex items-center gap-2">
-              <span>⚠️</span> Unverified
-            </div>
-          )}
-          <p className="opacity-70 mt-4 max-w-lg">
-            Unverified publishers cannot receive USDC micropayments from Aegis Agents. Prove your credibility to join the registry.
-          </p>
+        <div className="clean-card p-6 mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Trust Registry Status</h2>
+            <p className="text-sm text-[var(--text-secondary)] max-w-md">
+              Unverified publishers cannot receive USDC micropayments. Prove your credibility to join the registry.
+            </p>
+          </div>
+          <div>
+            {isTrusted ? (
+              <span className="badge-success">Verified Publisher</span>
+            ) : (
+              <span className="badge-warning">Unverified</span>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="glass-card p-8 opacity-50 relative overflow-hidden">
-            <div className="absolute top-4 right-4 bg-gray-800 text-xs px-2 py-1 rounded">Legacy</div>
-            <h2 className="text-xl font-bold mb-4">Economic Staking</h2>
-            <p className="opacity-70 mb-6 text-sm">Lock 100 USDC in the Trust Registry smart contract to gain instant trust via slashable stake.</p>
-            <button className="btn-secondary w-full cursor-not-allowed" disabled>
-              Stake 100 USDC
-            </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="clean-card p-6 opacity-60">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-base font-semibold">Economic Staking</h2>
+              <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase">Legacy</span>
+            </div>
+            <p className="text-sm text-[var(--text-secondary)] mb-6">Lock 100 USDC in the smart contract to gain instant trust via slashable stake.</p>
+            <button className="btn-secondary w-full" disabled>Stake 100 USDC</button>
           </div>
 
-          <div className="glass-card p-8 border-2 border-[var(--accent)] relative shadow-[0_0_20px_var(--accent)] shadow-opacity-20">
-            <div className="absolute top-4 right-4 bg-[var(--accent)] text-black text-xs px-2 py-1 rounded font-bold">Recommended</div>
-            <h2 className="text-xl font-bold mb-4">Zero-Knowledge Proof</h2>
-            <p className="opacity-70 mb-6 text-sm">Generate a cryptographic ZK-proof using Reclaim Protocol to verify your NYT/WSJ credential without revealing your identity.</p>
-            <button onClick={submitZKProof} className="btn-primary w-full shadow-[0_0_15px_var(--accent)]">
-              Submit ZK Credential
-            </button>
+          <div className="clean-card p-6 border-[var(--primary)] shadow-sm">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-base font-semibold text-[var(--primary)]">Zero-Knowledge Proof</h2>
+              <span className="badge-success !bg-[var(--primary)] !text-white text-[10px] px-2 py-0.5">Recommended</span>
+            </div>
+            <p className="text-sm text-[var(--text-secondary)] mb-6">Generate a cryptographic ZK-proof using Reclaim to verify credentials without revealing identity.</p>
+            <button onClick={submitZKProof} className="btn-primary w-full">Submit ZK Credential</button>
           </div>
         </div>
       </main>

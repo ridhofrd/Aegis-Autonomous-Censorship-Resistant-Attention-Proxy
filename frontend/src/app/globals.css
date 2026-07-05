@@ -1,74 +1,126 @@
 @import "tailwindcss";
 
 :root {
-  /* Light Theme Variables */
-  --bg-color: #f5f7fa;
-  --text-color: #1a1a1a;
-  --card-bg: rgba(255, 255, 255, 0.7);
-  --card-border: rgba(0, 0, 0, 0.05);
-  --primary: #8a2be2;
-  --primary-hover: #7b2cbf;
-  --accent: #00d2ff;
+  /* Light Theme Variables (Proton Inspired) */
+  --bg-color: #f7f9fa;
+  --bg-secondary: #ffffff;
+  --text-primary: #15161a;
+  --text-secondary: #5e626b;
+  --card-bg: #ffffff;
+  --card-border: #e2e5e9;
+  --primary: #6D4AFF;
+  --primary-hover: #5A35E0;
+  --success-bg: #e6f7ec;
+  --success-text: #178a41;
+  --warning-bg: #fff5e5;
+  --warning-text: #b35f00;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
 }
 
 [data-theme="dark"] {
-  /* Dark Theme Variables */
-  --bg-color: #0b0c10;
-  --text-color: #ffffff;
-  --card-bg: rgba(25, 25, 30, 0.6);
-  --card-border: rgba(255, 255, 255, 0.1);
-  --primary: #8a2be2;
-  --primary-hover: #9d4edd;
-  --accent: #66fcf1;
+  /* Dark Theme Variables (Proton Inspired) */
+  --bg-color: #0f1115;
+  --bg-secondary: #16181d;
+  --text-primary: #e6e8eb;
+  --text-secondary: #9da2ad;
+  --card-bg: #16181d;
+  --card-border: #2b2f36;
+  --primary: #8265ff;
+  --primary-hover: #6D4AFF;
+  --success-bg: rgba(23, 138, 65, 0.15);
+  --success-text: #34c76b;
+  --warning-bg: rgba(179, 95, 0, 0.15);
+  --warning-text: #ffa540;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
 }
 
 body {
   background-color: var(--bg-color);
-  color: var(--text-color);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  color: var(--text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   margin: 0;
   padding: 0;
   min-height: 100vh;
 }
 
-.glass-card {
-  background: var(--card-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+.clean-card {
+  background-color: var(--card-bg);
   border: 1px solid var(--card-border);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.2s ease;
 }
 
-/* Micro-animations */
+.clean-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--accent));
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
+  background-color: var(--primary);
+  color: #ffffff;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4);
+  background-color: var(--primary-hover);
 }
 
 .btn-secondary {
-  background: transparent;
-  color: var(--text-color);
+  background-color: var(--card-bg);
+  color: var(--text-primary);
   border: 1px solid var(--card-border);
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .btn-secondary:hover {
-  background: var(--card-border);
+  background-color: var(--bg-secondary);
+  border-color: var(--text-secondary);
+}
+
+.badge-success {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-warning {
+  background-color: var(--warning-bg);
+  color: var(--warning-text);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.clean-input {
+  background-color: var(--card-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease;
+}
+
+.clean-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(109, 74, 255, 0.2);
 }
