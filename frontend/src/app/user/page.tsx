@@ -5,6 +5,7 @@ import Link from "next/link";
 import { isAllowed, setAllowed, requestAccess, signTransaction } from "@stellar/freighter-api";
 import { useTheme } from "@/components/ThemeProvider";
 import { Client as AttentionVault, networks as vaultNetworks } from "attention_vault";
+import { Client as TrustRegistry } from "trust_registry";
 import { Keypair } from "@stellar/stellar-sdk";
 
 interface Article {
@@ -233,6 +234,40 @@ export default function UnifiedDashboard() {
     } catch (e) {
       console.error(e);
       alert("Payment failed.");
+    } finally {
+      setVaultLoading(false);
+    }
+  };
+
+  const handleDisputePublisher = async (publisherAddress?: string) => {
+    if (!publicKey) return alert("Connect wallet first!");
+    if (!publisherAddress) return alert("Publisher address not found!");
+
+    setVaultLoading(true);
+    try {
+      // In a real app, the user signs a transaction calling the trust_registry slash function.
+      // We will simulate it using the generated bindings.
+      const trustRegistry = new TrustRegistry({
+        networkPassphrase: vaultNetworks.testnet.networkPassphrase,
+        contractId: TRUST_REGISTRY_ID,
+        rpcUrl: "https://soroban-testnet.stellar.org",
+        publicKey: publicKey,
+      });
+
+      const tx = await trustRegistry.slash({
+        publisher: publisherAddress
+      });
+
+      await tx.signAndSend({
+        signTransaction: async (xdr: string) => {
+          return await signTransaction(xdr, { networkPassphrase: vaultNetworks.testnet.networkPassphrase });
+        }
+      });
+      alert(`Success! You have disputed this publisher. Their 100 USDC stake has been slashed and they are no longer Verified.`);
+
+    } catch (e) {
+      console.error(e);
+      alert("Dispute failed. They might not be staked or you lack permissions.");
     } finally {
       setVaultLoading(false);
     }
@@ -500,6 +535,14 @@ export default function UnifiedDashboard() {
                         >
                           {vaultLoading ? "..." : "Pay 0.1 USDC"}
                         </button>
+                        <button
+                          onClick={() => handleDisputePublisher(article.publisherAddress)}
+                          className="w-full flex justify-center items-center gap-2 py-2 px-4 rounded-lg font-bold transition-all bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 text-xs"
+                          disabled={vaultLoading}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                          Report Fake News
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -637,13 +680,22 @@ export default function UnifiedDashboard() {
                                     {cit.title}
                                   </a>
                                 </div>
-                                <button
-                                  onClick={() => handlePayPublisher(cit.publisherAddress)}
-                                  disabled={vaultLoading}
-                                  className="text-xs bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white font-semibold py-1.5 px-3 rounded-md transition-colors shrink-0"
-                                >
-                                  {vaultLoading ? "..." : "Pay 0.1 USDC"}
-                                </button>
+                                <div className="flex flex-col gap-2 shrink-0">
+                                  <button
+                                    onClick={() => handlePayPublisher(cit.publisherAddress)}
+                                    disabled={vaultLoading}
+                                    className="text-xs bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white font-semibold py-1.5 px-3 rounded-md transition-colors"
+                                  >
+                                    {vaultLoading ? "..." : "Pay 0.1 USDC"}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDisputePublisher(cit.publisherAddress)}
+                                    disabled={vaultLoading}
+                                    className="text-xs bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white font-semibold py-1.5 px-3 rounded-md transition-colors border border-red-500/20 flex items-center gap-1 justify-center"
+                                  >
+                                    Report
+                                  </button>
+                                </div>
                               </div>
                             ))}
                           </div>
