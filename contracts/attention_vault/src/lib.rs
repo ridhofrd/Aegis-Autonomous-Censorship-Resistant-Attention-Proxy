@@ -83,3 +83,6 @@ impl AttentionVaultContract {
         env.storage().persistent().set(&DataKey::DailySpent, &daily_spent);
     }
 }
+
+#[cfg(test)]
+mod test;
