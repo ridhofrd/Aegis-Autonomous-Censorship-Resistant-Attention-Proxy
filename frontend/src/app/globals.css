@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+:root {
+  /* Light Theme Variables */
+  --bg-color: #f5f7fa;
+  --text-color: #1a1a1a;
+  --card-bg: rgba(255, 255, 255, 0.7);
+  --card-border: rgba(0, 0, 0, 0.05);
+  --primary: #8a2be2;
+  --primary-hover: #7b2cbf;
+  --accent: #00d2ff;
+}
+
+[data-theme="dark"] {
+  /* Dark Theme Variables */
+  --bg-color: #0b0c10;
+  --text-color: #ffffff;
+  --card-bg: rgba(25, 25, 30, 0.6);
+  --card-border: rgba(255, 255, 255, 0.1);
+  --primary: #8a2be2;
+  --primary-hover: #9d4edd;
+  --accent: #66fcf1;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* Micro-animations */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(138, 43, 226, 0.4);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text-color);
+  border: 1px solid var(--card-border);
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--card-border);
+}
