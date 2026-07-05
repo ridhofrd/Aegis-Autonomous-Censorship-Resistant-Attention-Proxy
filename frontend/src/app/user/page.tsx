@@ -84,6 +84,7 @@ export default function UnifiedDashboard() {
 
   // Chat State
   const [prompt, setPrompt] = useState("");
+  const [persona, setPersona] = useState("Standard Investigator");
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "ai",
@@ -288,7 +289,7 @@ export default function UnifiedDashboard() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: userMessage })
+        body: JSON.stringify({ prompt: userMessage, persona: persona })
       });
       const data = await res.json();
 
@@ -641,7 +642,28 @@ export default function UnifiedDashboard() {
           {/* === TAB 3: AI CHAT INVESTIGATOR === */}
           {activeTab === "chat" && (
             <div className="flex flex-col flex-1 h-[65vh] animate-fadeIn relative max-w-4xl mx-auto w-full">
-              <div className="flex-1 overflow-y-auto p-2 md:p-6 flex flex-col gap-8 scroll-smooth pb-32">
+              
+              {/* Persona Selector */}
+              <div className="flex justify-between items-center mb-4 px-2 md:px-6">
+                <div>
+                  <h2 className="text-xl font-bold">Aegis AI Agent</h2>
+                  <p className="text-xs text-[var(--text-secondary)]">Your proxy for verifiable truth.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Persona:</span>
+                  <select 
+                    value={persona}
+                    onChange={(e) => setPersona(e.target.value)}
+                    className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-md px-3 py-1.5 text-sm font-semibold text-[var(--primary)] outline-none cursor-pointer focus:border-[var(--primary)]"
+                  >
+                    <option value="Standard Investigator">Standard Investigator</option>
+                    <option value="Privacy Advocate">Privacy Advocate</option>
+                    <option value="On-Chain Verifier">On-Chain Verifier</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-2 md:p-6 flex flex-col gap-8 scroll-smooth pb-32 border-t border-[var(--card-border)] pt-6">
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-5 ${msg.role === "user"

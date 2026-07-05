@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    const { prompt } = await request.json();
+    const { prompt, persona } = await request.json();
 
     if (!prompt) {
       return NextResponse.json({ error: "Prompt is required." }, { status: 400 });
@@ -10,18 +10,28 @@ export async function POST(request: Request) {
 
     // MOCK LLM LOGIC: 
     // In production, this would use a real LLM + RAG to crawl independent web sources.
-    
+
     // Simulate API delay
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     // Determine context based on keywords to make the mock feel dynamic
     const lowercasePrompt = prompt.toLowerCase();
-    
+
     let responseText = "";
     let citations = [];
 
+    // Base persona framing
+    let personaPrefix = "";
+    if (persona === "Privacy Advocate") {
+      personaPrefix = "[Privacy Advocate Mode]: Analyzing sources through the lens of data sovereignty and surveillance resistance... ";
+    } else if (persona === "On-Chain Verifier") {
+      personaPrefix = "[On-Chain Verifier Mode]: Prioritizing hard blockchain data and cryptographically signed journalism over narrative... ";
+    } else {
+      personaPrefix = "[Standard Investigator]: Gathering diverse independent viewpoints... ";
+    }
+
     if (lowercasePrompt.includes("privacy") || lowercasePrompt.includes("regulation") || lowercasePrompt.includes("tech")) {
-      responseText = "Independent journalists and whistleblowers are reporting significant concerns regarding the new tech privacy regulations. While mainstream outlets have framed it as a security enhancement, several decentralized tech advocates and independent researchers argue it introduces surveillance backdoors. According to leaked documents analyzed by independent researchers, the enforcement mechanisms bypass traditional judicial oversight.";
+      responseText = personaPrefix + "Independent journalists and whistleblowers are reporting significant concerns regarding the new tech privacy regulations. While mainstream outlets have framed it as a security enhancement, several decentralized tech advocates and independent researchers argue it introduces surveillance backdoors. According to leaked documents analyzed by independent researchers, the enforcement mechanisms bypass traditional judicial oversight.";
       citations = [
         {
           id: "cit-1",
@@ -41,7 +51,7 @@ export async function POST(request: Request) {
         }
       ];
     } else if (lowercasePrompt.includes("finance") || lowercasePrompt.includes("crypto") || lowercasePrompt.includes("market")) {
-      responseText = "On-chain analysts are observing a divergence between mainstream financial reporting and actual blockchain activity. Independent researchers have noted that institutional accumulation of digital assets is happening quietly off-exchange, contradicting the bearish sentiment pushed by major financial networks. Furthermore, a recent whistleblower report from a mid-sized exchange indicates regulatory pressure is being applied unevenly.";
+      responseText = personaPrefix + "On-chain analysts are observing a divergence between mainstream financial reporting and actual blockchain activity. Independent researchers have noted that institutional accumulation of digital assets is happening quietly off-exchange, contradicting the bearish sentiment pushed by major financial networks. Furthermore, a recent whistleblower report from a mid-sized exchange indicates regulatory pressure is being applied unevenly.";
       citations = [
         {
           id: "cit-3",
@@ -61,7 +71,7 @@ export async function POST(request: Request) {
         }
       ];
     } else {
-      responseText = "I've scoured independent blogs, decentralized networks, and alternative news sources regarding your query. The general consensus from independent researchers highlights details that major networks are omitting. The focus remains on grassroots impacts rather than top-down institutional narratives.";
+      responseText = personaPrefix + "I've scoured independent blogs, decentralized networks, and alternative news sources regarding your query. The general consensus from independent researchers highlights details that major networks are omitting. The focus remains on grassroots impacts rather than top-down institutional narratives.";
       citations = [
         {
           id: "cit-5",
