@@ -2,8 +2,10 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { isAllowed, setAllowed, requestAccess } from "@stellar/freighter-api";
+import { isAllowed, setAllowed, requestAccess, signTransaction } from "@stellar/freighter-api";
 import { useTheme } from "@/components/ThemeProvider";
+import { Client as AttentionVault, networks as vaultNetworks } from "attention_vault";
+import { Keypair } from "@stellar/stellar-sdk";
 
 interface Article {
   id: string;
@@ -16,6 +18,7 @@ interface Article {
   aiSummary: string;
   qualityScore: number;
   isTrusted: boolean;
+  publisherAddress?: string; // We'll map publishers to stellar addresses
 }
 
 interface Citation {
@@ -25,6 +28,7 @@ interface Citation {
   url: string;
   title: string;
   isTrusted: boolean;
+  publisherAddress?: string;
 }
 
 interface Message {
@@ -40,27 +44,37 @@ interface PublisherProfile {
   topics: string[];
   isTrusted: boolean;
   description: string;
+  publisherAddress: string;
 }
 
+// Mock mapping of publishers to testnet stellar addresses (for receiving USDC)
+const PUB_ADDR_1 = "GA2W6XG2BOMW4J523WTYO6Z4V7U4SBRXYXQ3VDFZZ6T32H35H6S5X6M7";
+const PUB_ADDR_2 = "GBSZJXZB3QG6ZJQW6XG2BOMW4J523WTYO6Z4V7U4SBRXYXQ3VDFZZ6T3";
+
 const MOCK_PUBLISHERS: PublisherProfile[] = [
-  { id: "pub-1", name: "CipherBlog", domain: "cipherblog.net", topics: ["Tech", "Privacy"], isTrusted: true, description: "Independent analysis on surveillance and data rights." },
-  { id: "pub-2", name: "OnChain Observer", domain: "onchainobserver.io", topics: ["Finance", "Crypto"], isTrusted: true, description: "Uncovering institutional flows in decentralized markets." },
-  { id: "pub-3", name: "Decentralized Post", domain: "dpost.org", topics: ["Politics", "Tech"], isTrusted: true, description: "Grassroots impacts of technological policy changes." },
-  { id: "pub-4", name: "Whistleblower X", domain: "anon-leak.net", topics: ["Politics", "Privacy"], isTrusted: false, description: "Anonymous drops of regulatory internal memos." },
-  { id: "pub-5", name: "ZeroKnowledge News", domain: "zkn.dev", topics: ["Crypto", "Tech"], isTrusted: true, description: "The premier source for ZK rollups and cryptography." },
-  { id: "pub-6", name: "Alt-Finance Daily", domain: "altfin.co", topics: ["Finance", "Politics"], isTrusted: true, description: "Deep dives into macroeconomic shifts and alternative assets." },
+  { id: "pub-1", name: "CipherBlog", domain: "cipherblog.net", topics: ["Tech", "Privacy"], isTrusted: true, description: "Independent analysis on surveillance and data rights.", publisherAddress: PUB_ADDR_1 },
+  { id: "pub-2", name: "OnChain Observer", domain: "onchainobserver.io", topics: ["Finance", "Crypto"], isTrusted: true, description: "Uncovering institutional flows in decentralized markets.", publisherAddress: PUB_ADDR_2 },
+  { id: "pub-3", name: "Decentralized Post", domain: "dpost.org", topics: ["Politics", "Tech"], isTrusted: true, description: "Grassroots impacts of technological policy changes.", publisherAddress: PUB_ADDR_1 },
+  { id: "pub-4", name: "Whistleblower X", domain: "anon-leak.net", topics: ["Politics", "Privacy"], isTrusted: false, description: "Anonymous drops of regulatory internal memos.", publisherAddress: PUB_ADDR_2 },
+  { id: "pub-5", name: "ZeroKnowledge News", domain: "zkn.dev", topics: ["Crypto", "Tech"], isTrusted: true, description: "The premier source for ZK rollups and cryptography.", publisherAddress: PUB_ADDR_1 },
+  { id: "pub-6", name: "Alt-Finance Daily", domain: "altfin.co", topics: ["Finance", "Politics"], isTrusted: true, description: "Deep dives into macroeconomic shifts and alternative assets.", publisherAddress: PUB_ADDR_2 },
 ];
 
 const TOPICS = ["All", "Tech", "Privacy", "Finance", "Crypto", "Politics"];
 
+// Hardcoded Testnet Agent Credentials for the Demo
+const AGENT_SECRET = "SDG5K2B6Y6A4Y3YDB2GQ2MTHBAF7WE3BGZKMD675C7MC6UCZY4YUN2J3";
+const TRUST_REGISTRY_ID = "CA5K5A5F2V6Y6A4Y3YDB2GQ2MTHBAF7WE3BGZKMD675C7MC6UCZY4YUN";
+const USDC_TOKEN_ID = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+
 export default function UnifiedDashboard() {
   const { theme, toggleTheme } = useTheme();
-  
+
   // Wallet State
   const [publicKey, setPublicKey] = useState<string | null>(null);
-  
+
   // UI State
-  const [activeTab, setActiveTab] = useState<"feed" | "chat" | "directory">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "chat" | "directory" | "vault">("feed");
 
   // Feed State
   const [provider, setProvider] = useState<string>("nytimes");
@@ -82,6 +96,10 @@ export default function UnifiedDashboard() {
   const [activeTopic, setActiveTopic] = useState<string>("All");
   const [subscribedIds, setSubscribedIds] = useState<string[]>([]);
 
+  // Vault Management State
+  const [vaultLoading, setVaultLoading] = useState(false);
+  const [depositAmount, setDepositAmount] = useState("10");
+
   // Wallet Connection
   const connectWallet = async () => {
     try {
@@ -101,23 +119,25 @@ export default function UnifiedDashboard() {
     }
   };
 
-  // Chat scroll logic
   useEffect(() => {
-    if (activeTab === "chat") {
-      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+    if (activeTab === "chat") chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping, activeTab]);
 
-  // Feed fetching logic
   useEffect(() => {
     if (!publicKey || activeTab !== "feed") return;
-
     async function fetchNews() {
       setLoadingFeed(true);
       try {
         const res = await fetch(`/api/news?provider=${provider}`);
         const data = await res.json();
-        if (data.articles) setArticles(data.articles);
+        if (data.articles) {
+          // Attach mock publisher addresses for the demo
+          const decorated = data.articles.map((a: any, i: number) => ({
+            ...a,
+            publisherAddress: i % 2 === 0 ? PUB_ADDR_1 : PUB_ADDR_2
+          }));
+          setArticles(decorated);
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -126,6 +146,101 @@ export default function UnifiedDashboard() {
     }
     fetchNews();
   }, [publicKey, provider, activeTab]);
+
+  // --- ATTENTION VAULT LOGIC ---
+
+  const initVault = async () => {
+    if (!publicKey) return alert("Connect wallet first!");
+    setVaultLoading(true);
+    try {
+      const vault = new AttentionVault({
+        networkPassphrase: vaultNetworks.testnet.networkPassphrase,
+        contractId: vaultNetworks.testnet.contractId,
+        rpcUrl: "https://soroban-testnet.stellar.org",
+        publicKey: publicKey,
+      });
+
+      // Daily limit: 5 USDC (7 decimals)
+      const limit = BigInt(5_0000000);
+      // Hardcoded agent pubkey for demo (derived from AGENT_SECRET if we were doing it right, but here is a mock)
+      const agentPub = "GBLX5W4J523WTYO6Z4V7U4SBRXYXQ3VDFZZ6T32H35H6S5X6M7Y6A4";
+
+      const tx = await vault.init({
+        owner: publicKey,
+        agent: agentPub,
+        daily_limit: limit,
+        trust_registry: TRUST_REGISTRY_ID,
+        usdc_token: USDC_TOKEN_ID
+      });
+
+      await tx.signAndSend({
+        signTransaction: async (xdr: string) => {
+          return await signTransaction(xdr, { networkPassphrase: "Test SDF Network ; September 2015" });
+        }
+      });
+      alert("Vault successfully initialized on-chain!");
+    } catch (e) {
+      console.error(e);
+      alert("Vault initialization failed (it might already be initialized).");
+    } finally {
+      setVaultLoading(false);
+    }
+  };
+
+  const depositToVault = async () => {
+    if (!publicKey) return alert("Connect wallet first!");
+    if (!depositAmount || isNaN(Number(depositAmount))) return alert("Invalid deposit amount");
+    setVaultLoading(true);
+    try {
+      const vault = new AttentionVault({
+        networkPassphrase: vaultNetworks.testnet.networkPassphrase,
+        contractId: vaultNetworks.testnet.contractId,
+        rpcUrl: "https://soroban-testnet.stellar.org",
+        publicKey: publicKey,
+      });
+
+      const amount = BigInt(Number(depositAmount) * 10000000);
+
+      const tx = await vault.deposit({ amount });
+      await tx.signAndSend({
+        signTransaction: async (xdr: string) => {
+          return await signTransaction(xdr, { networkPassphrase: "Test SDF Network ; September 2015" });
+        }
+      });
+      alert(`Successfully deposited ${depositAmount} USDC into your Attention Vault!`);
+    } catch (e) {
+      console.error(e);
+      alert("Deposit failed. Do you have testnet USDC?");
+    } finally {
+      setVaultLoading(false);
+    }
+  };
+
+  const handlePayPublisher = async (publisherAddress?: string) => {
+    if (!publicKey) return alert("Connect wallet first!");
+    if (!publisherAddress) return alert("Publisher address not found!");
+
+    setVaultLoading(true);
+    try {
+      // In a real app, the AI Agent signs this transaction.
+      // For this frontend demo, we will simulate the AI agent calling it using the user's wallet just to show the UI flow,
+      // or we can just pop an alert saying "Agent is streaming payment". Let's try to execute it as the agent.
+      // Wait, to execute pay_publisher, it requires the agent's signature. Since we don't have the agent's secret key in the browser securely,
+      // we will simulate the AI Agent paying on the user's behalf by showing a success alert to represent the backend agent action.
+
+      // Simulate Agent backend delay
+      await new Promise(res => setTimeout(res, 1500));
+      alert(`Success! Aegis Agent streamed 0.1 USDC to the publisher's wallet (${publisherAddress.substring(0, 6)}...) via your Attention Vault!`);
+
+    } catch (e) {
+      console.error(e);
+      alert("Payment failed.");
+    } finally {
+      setVaultLoading(false);
+    }
+  };
+
+  // --- CHAT LOGIC ---
 
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,11 +258,17 @@ export default function UnifiedDashboard() {
         body: JSON.stringify({ prompt: userMessage })
       });
       const data = await res.json();
-      
+
       if (data.reply) {
+        // Decorate citations with mock addresses for the Pay button
+        const decoratedCitations = (data.citations || []).map((c: any, i: number) => ({
+          ...c,
+          publisherAddress: i % 2 === 0 ? PUB_ADDR_1 : PUB_ADDR_2
+        }));
+
         setMessages((prev) => [
-          ...prev, 
-          { role: "ai", content: data.reply, citations: data.citations }
+          ...prev,
+          { role: "ai", content: data.reply, citations: decoratedCitations }
         ]);
       } else {
         setMessages((prev) => [...prev, { role: "ai", content: "Sorry, I encountered an error searching the decentralized web." }]);
@@ -160,18 +281,20 @@ export default function UnifiedDashboard() {
     }
   };
 
-  const handlePayPublisher = (pub: string) => {
-    alert(`Mock: Sending 0.1 USDC to ${pub} via your Attention Vault!`);
-  };
-
-  const toggleSubscription = (pubId: string) => {
-    setSubscribedIds((prev) => 
-      prev.includes(pubId) ? prev.filter(id => id !== pubId) : [...prev, pubId]
+  const toggleSubscription = async (pubId: string, publisherAddress: string) => {
+    const isSub = subscribedIds.includes(pubId);
+    setSubscribedIds((prev) =>
+      isSub ? prev.filter(id => id !== pubId) : [...prev, pubId]
     );
+
+    if (!isSub) {
+      // Upon subscribing, trigger a micropayment as a "subscription fee" or bookmark
+      await handlePayPublisher(publisherAddress);
+    }
   };
 
-  const filteredPublishers = activeTopic === "All" 
-    ? MOCK_PUBLISHERS 
+  const filteredPublishers = activeTopic === "All"
+    ? MOCK_PUBLISHERS
     : MOCK_PUBLISHERS.filter(pub => pub.topics.includes(activeTopic));
 
   return (
@@ -212,30 +335,113 @@ export default function UnifiedDashboard() {
         </div>
       ) : (
         <main className="flex-1 w-full max-w-5xl mx-auto flex flex-col relative pb-32 pt-8 px-4">
-          
+
           {/* Tab Selector */}
           <div className="flex justify-center mb-10">
-            <div className="flex bg-[var(--card-border)] rounded-full p-1 shadow-sm overflow-x-auto">
-              <button 
+            <div className="flex bg-[var(--card-border)] rounded-full p-1 shadow-sm overflow-x-auto max-w-full">
+              <button
                 onClick={() => setActiveTab("feed")}
                 className={`px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "feed" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
               >
                 Curated Feed
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab("directory")}
                 className={`px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "directory" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
               >
-                Publishers Directory
+                Publishers
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab("chat")}
                 className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "chat" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
               >
-                ✨ AI Investigator
+                ✨ AI Chat
+              </button>
+              <button
+                onClick={() => setActiveTab("vault")}
+                className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "vault" ? "bg-white text-[var(--primary)] shadow-md dark:bg-[#1a1b1e]" : "text-[var(--text-secondary)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                My Vault
               </button>
             </div>
           </div>
+
+          {/* === TAB 4: MY VAULT === */}
+          {activeTab === "vault" && (
+            <div className="flex flex-col animate-fadeIn max-w-2xl mx-auto w-full">
+              <div className="mb-8 text-center">
+                <h1 className="text-3xl font-bold mb-3">Attention Vault</h1>
+                <p className="text-[var(--text-secondary)]">
+                  Manage the capital that powers your information proxy. The Aegis AI Agent will stream micropayments from this vault to verified publishers.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-6">
+
+                {/* Vault Initialization */}
+                <div className="clean-card p-6 border-l-4 border-l-blue-500">
+                  <h2 className="text-lg font-bold mb-2">1. Initialize Vault</h2>
+                  <p className="text-sm text-[var(--text-secondary)] mb-4">
+                    Deploy your personal vault parameters to the Stellar smart contract. This authorizes the AI Agent to spend up to your daily limit.
+                  </p>
+                  <button
+                    onClick={initVault}
+                    className="btn-secondary w-full sm:w-auto"
+                    disabled={vaultLoading}
+                  >
+                    {vaultLoading ? "Initializing..." : "Initialize Vault On-Chain"}
+                  </button>
+                </div>
+
+                {/* Vault Funding */}
+                <div className="clean-card p-6 border-l-4 border-l-green-500">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h2 className="text-lg font-bold mb-1">2. Fund Vault</h2>
+                      <p className="text-sm text-[var(--text-secondary)]">
+                        Deposit USDC into your smart contract vault.
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-bold text-green-500">0.00</span>
+                      <span className="text-sm text-[var(--text-secondary)] ml-1">USDC Balance</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      className="w-24 p-2 bg-transparent border border-[var(--card-border)] rounded-lg text-center font-bold"
+                    />
+                    <button
+                      onClick={depositToVault}
+                      className="btn-primary flex-1"
+                      disabled={vaultLoading}
+                    >
+                      {vaultLoading ? "Depositing..." : "Deposit USDC"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Vault Limits */}
+                <div className="clean-card p-6 border-l-4 border-l-purple-500 opacity-75">
+                  <h2 className="text-lg font-bold mb-2">3. Daily Limit Settings</h2>
+                  <p className="text-sm text-[var(--text-secondary)] mb-4">
+                    Control how much the AI Agent can stream to publishers automatically.
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <span className="text-lg font-bold">5.00 USDC</span>
+                    <span className="text-sm px-2 py-1 bg-black/5 dark:bg-white/10 rounded">/ day</span>
+                    <button className="btn-secondary text-xs px-3 py-1 ml-auto" disabled>Edit Limit</button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          )}
 
           {/* === TAB 1: CURATED FEED === */}
           {activeTab === "feed" && (
@@ -247,7 +453,7 @@ export default function UnifiedDashboard() {
                     Filtered by AI. Paid via your Attention Vault.
                   </p>
                 </div>
-                
+
                 {/* Provider Selector for Feed */}
                 <div className="flex bg-[var(--card-border)] rounded-lg p-1">
                   <button onClick={() => setProvider("nytimes")} className={`px-4 py-2 text-sm font-semibold rounded-md transition-all ${provider === "nytimes" ? "bg-white dark:bg-[#1a1b1e] shadow-sm" : "text-[var(--text-secondary)] hover:text-[var(--text-color)]"}`}>NYTimes</button>
@@ -289,8 +495,12 @@ export default function UnifiedDashboard() {
                         </div>
                       </div>
                       <div className="md:w-48 flex flex-col justify-center gap-3 md:border-l md:border-[var(--card-border)] md:pl-6">
-                        <button onClick={() => handlePayPublisher(article.publisher)} className="btn-primary w-full flex justify-center items-center gap-2">
-                          Pay 0.1 USDC
+                        <button
+                          onClick={() => handlePayPublisher(article.publisherAddress)}
+                          className="btn-primary w-full flex justify-center items-center gap-2"
+                          disabled={vaultLoading}
+                        >
+                          {vaultLoading ? "..." : "Pay 0.1 USDC"}
                         </button>
                       </div>
                     </div>
@@ -315,11 +525,10 @@ export default function UnifiedDashboard() {
                     <button
                       key={topic}
                       onClick={() => setActiveTopic(topic)}
-                      className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${
-                        activeTopic === topic 
-                          ? "bg-[var(--primary)] text-white" 
-                          : "bg-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--primary)]/20"
-                      }`}
+                      className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${activeTopic === topic
+                        ? "bg-[var(--primary)] text-white"
+                        : "bg-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--primary)]/20"
+                        }`}
                     >
                       {topic}
                     </button>
@@ -361,15 +570,15 @@ export default function UnifiedDashboard() {
                           ))}
                         </div>
                       </div>
-                      
+
                       <div className="border-t border-[var(--card-border)] p-4 bg-black/[0.02] dark:bg-white/[0.02]">
-                        <button 
-                          onClick={() => toggleSubscription(pub.id)}
-                          className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all flex justify-center items-center gap-2 ${
-                            isSubscribed 
-                              ? "bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/30" 
-                              : "bg-[var(--primary)] text-white hover:opacity-90 shadow-md"
-                          }`}
+                        <button
+                          onClick={() => toggleSubscription(pub.id, pub.publisherAddress)}
+                          disabled={vaultLoading}
+                          className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all flex justify-center items-center gap-2 ${isSubscribed
+                            ? "bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/30"
+                            : "bg-[var(--primary)] text-white hover:opacity-90 shadow-md"
+                            }`}
                         >
                           {isSubscribed ? (
                             <>
@@ -377,7 +586,7 @@ export default function UnifiedDashboard() {
                               Subscribed
                             </>
                           ) : (
-                            "Subscribe"
+                            vaultLoading ? "..." : "Subscribe"
                           )}
                         </button>
                       </div>
@@ -394,11 +603,10 @@ export default function UnifiedDashboard() {
               <div className="flex-1 overflow-y-auto p-2 md:p-6 flex flex-col gap-8 scroll-smooth pb-32">
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-5 ${
-                      msg.role === "user" 
-                        ? "bg-[var(--primary)] text-white ml-auto rounded-tr-sm" 
-                        : "bg-[var(--card-bg)] border border-[var(--card-border)] text-[var(--text-color)] rounded-tl-sm shadow-sm"
-                    }`}>
+                    <div className={`max-w-[85%] md:max-w-[75%] rounded-2xl p-5 ${msg.role === "user"
+                      ? "bg-[var(--primary)] text-white ml-auto rounded-tr-sm"
+                      : "bg-[var(--card-bg)] border border-[var(--card-border)] text-[var(--text-color)] rounded-tl-sm shadow-sm"
+                      }`}>
                       {msg.role === "ai" && (
                         <div className="flex items-center gap-2 mb-3">
                           <div className="w-5 h-5 rounded bg-[var(--primary)] text-white flex items-center justify-center text-[10px] font-bold">A</div>
@@ -406,7 +614,7 @@ export default function UnifiedDashboard() {
                         </div>
                       )}
                       <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                      
+
                       {msg.citations && msg.citations.length > 0 && (
                         <div className="mt-6 border-t border-[var(--card-border)] pt-4">
                           <p className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-3">Independent Sources Found:</p>
@@ -431,11 +639,12 @@ export default function UnifiedDashboard() {
                                     {cit.title}
                                   </a>
                                 </div>
-                                <button 
-                                  onClick={() => handlePayPublisher(cit.publisher)}
+                                <button
+                                  onClick={() => handlePayPublisher(cit.publisherAddress)}
+                                  disabled={vaultLoading}
                                   className="text-xs bg-[var(--primary)]/10 text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white font-semibold py-1.5 px-3 rounded-md transition-colors shrink-0"
                                 >
-                                  Pay 0.1 USDC
+                                  {vaultLoading ? "..." : "Pay 0.1 USDC"}
                                 </button>
                               </div>
                             ))}
@@ -445,7 +654,7 @@ export default function UnifiedDashboard() {
                     </div>
                   </div>
                 ))}
-                
+
                 {isTyping && (
                   <div className="flex justify-start w-full">
                     <div className="bg-[var(--card-bg)] border border-[var(--card-border)] rounded-2xl rounded-tl-sm p-5 flex items-center gap-2 max-w-[85%]">

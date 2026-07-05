@@ -14,7 +14,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "rss-parser": "^3.13.0",
-    "trust_registry": "file:src/contracts/trust_registry"
+    "trust_registry": "file:src/contracts/trust_registry",
+    "attention_vault": "file:src/contracts/attention_vault"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
