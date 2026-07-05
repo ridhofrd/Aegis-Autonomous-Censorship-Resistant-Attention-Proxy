@@ -1,13 +1,55 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
+// This is your Prisma schema file
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "sqlite"
+}
+
+model Persona {
+  id          String   @id @default(cuid())
+  name        String
+  instruction String
+  jobs        AutomationJob[]
+}
+
+model RssFeed {
+  id      String   @id @default(cuid())
+  name    String
+  url     String
+  jobs    AutomationJob[]
+}
+
+model AutomationJob {
+  id           String       @id @default(cuid())
+  name         String
+  cronSchedule String       // e.g., "0 7 * * *"
+  personaId    String
+  persona      Persona      @relation(fields: [personaId], references: [id])
+  feeds        RssFeed[]
+  digests      JobDigest[]
+  createdAt    DateTime     @default(now())
+}
+
+model JobDigest {
+  id              String        @id @default(cuid())
+  automationJobId String
+  automationJob   AutomationJob @relation(fields: [automationJobId], references: [id])
+  createdAt       DateTime      @default(now())
+  articles        Article[]
+}
+
+model Article {
+  id             String    @id @default(cuid())
+  title          String
+  link           String
+  pubDate        String
+  contentSnippet String
+  publisher      String
+  domain         String
+  aiSummary      String
+  jobDigestId    String
+  jobDigest      JobDigest @relation(fields: [jobDigestId], references: [id])
 }
