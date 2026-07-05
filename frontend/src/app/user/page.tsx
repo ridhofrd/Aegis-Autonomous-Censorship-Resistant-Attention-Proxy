@@ -256,7 +256,9 @@ export default function UnifiedDashboard() {
       });
 
       const tx = await trustRegistry.slash({
-        publisher: publisherAddress
+        admin: publicKey,
+        publisher: publisherAddress,
+        amount: BigInt(100_0000000)
       });
 
       await tx.signAndSend({
