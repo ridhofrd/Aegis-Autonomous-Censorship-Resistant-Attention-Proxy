@@ -1,11 +1,13 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, BytesN};
+use soroban_sdk::{contract, contractimpl, contracttype, token, Address, BytesN, Env, Bytes};
 
 #[contracttype]
 pub enum DataKey {
-    Trusted(Address), // Maps a publisher's address to a boolean indicating trust
-    Stake(Address),   // Maps a publisher's address to their staked USDC amount
+    Trusted(Address),      // Maps a publisher's address to a boolean indicating trust
+    Stake(Address),        // Maps a publisher's address to their staked USDC amount
+    UsdcToken,             // Address of the USDC token contract
+    OraclePubKey,          // The ED25519 public key of the trusted Oracle (e.g., Reclaim)
 }
 
 #[contract]
@@ -13,32 +15,54 @@ pub struct TrustRegistryContract;
 
 #[contractimpl]
 impl TrustRegistryContract {
+    /// Initialize the Trust Registry with the USDC token address and the trusted Oracle's public key
+    pub fn init(env: Env, usdc_token: Address, oracle_pub_key: BytesN<32>) {
+        // Prevent double-initialization
+        if env.storage().persistent().has(&DataKey::UsdcToken) {
+            panic!("Already initialized");
+        }
+        env.storage().persistent().set(&DataKey::UsdcToken, &usdc_token);
+        env.storage().persistent().set(&DataKey::OraclePubKey, &oracle_pub_key);
+    }
 
-    /// Registers a publisher via ZK-Proof (Zero Trust Architecture)
-    /// In a production environment, this would verify a Reclaim Protocol ZK-proof.
-    /// For the MVP hackathon scope, we mock the verification.
-    pub fn submit_zk_proof(env: Env, publisher: Address, _proof_bytes: BytesN<32>) {
+    /// Registers a publisher via ZK-Proof by verifying a cryptographic signature from the Oracle.
+    /// The `payload` represents the data the oracle verified (e.g., domain ownership).
+    pub fn submit_zk_proof(env: Env, publisher: Address, payload: Bytes, signature: BytesN<64>) {
         publisher.require_auth();
         
-        // MVP MOCK: We assume the proof_bytes are valid and verified here.
-        // If valid, we immediately grant the publisher "High Trust" status.
+        let oracle_pub_key: BytesN<32> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::OraclePubKey)
+            .expect("Oracle public key not configured");
+
+        // Verify that the trusted Oracle actually signed this payload
+        // If the signature is invalid, this will panic and revert the transaction.
+        env.crypto().ed25519_verify(&oracle_pub_key, &payload, &signature);
+
+        // If verification succeeds, we grant the publisher "Trusted" status
         env.storage().persistent().set(&DataKey::Trusted(publisher.clone()), &true);
     }
 
     /// Secondary Mechanism: Staking USDC for Independent Publishers
-    /// A publisher stakes USDC to gain trust if they don't have institutional credentials.
     pub fn stake(env: Env, publisher: Address, amount: i128) {
         publisher.require_auth();
         
-        // Ensure the stake is a positive amount
         if amount <= 0 {
             panic!("Stake amount must be positive");
         }
 
-        // In a full implementation, we would transfer USDC from the publisher 
-        // to this contract using the soroban_sdk::token::Client.
-        // For MVP, we simply record the stake in state.
+        let usdc_token_addr: Address = env
+            .storage()
+            .persistent()
+            .get(&DataKey::UsdcToken)
+            .expect("USDC token not configured");
 
+        // Transfer USDC from the publisher to this contract
+        let token_client = token::Client::new(&env, &usdc_token_addr);
+        token_client.transfer(&publisher, &env.current_contract_address(), &amount);
+
+        // Update stake record
         let mut current_stake: i128 = env
             .storage()
             .persistent()
@@ -48,8 +72,8 @@ impl TrustRegistryContract {
         current_stake += amount;
         env.storage().persistent().set(&DataKey::Stake(publisher.clone()), &current_stake);
         
-        // Assuming a minimum stake of 100 USDC to get Trusted status
-        if current_stake >= 100_0000000 { // 100 USDC (7 decimals)
+        // 100 USDC (7 decimals) minimum stake to get Trusted status
+        if current_stake >= 100_0000000 { 
             env.storage().persistent().set(&DataKey::Trusted(publisher.clone()), &true);
         }
     }
@@ -57,7 +81,7 @@ impl TrustRegistryContract {
     /// Admin function to slash a publisher for posting fake news
     pub fn slash(env: Env, admin: Address, publisher: Address, amount: i128) {
         admin.require_auth();
-        // MVP MOCK: In reality, we'd ensure 'admin' is a decentralized jury or owner.
+        // In reality, ensure 'admin' is a decentralized jury. For MVP, anyone can slash (MOCK).
         
         let mut current_stake: i128 = env
             .storage()
@@ -65,18 +89,21 @@ impl TrustRegistryContract {
             .get(&DataKey::Stake(publisher.clone()))
             .unwrap_or(0);
             
-        if amount > current_stake {
-            current_stake = 0;
-        } else {
-            current_stake -= amount;
-        }
+        let actual_slash = if amount > current_stake { current_stake } else { amount };
+        current_stake -= actual_slash;
         
         env.storage().persistent().set(&DataKey::Stake(publisher.clone()), &current_stake);
         
-        // Revoke trust if stake falls below minimum threshold
+        // If they drop below minimum stake, revoke trust
         if current_stake < 100_0000000 {
             env.storage().persistent().set(&DataKey::Trusted(publisher.clone()), &false);
         }
+
+        // We burn or transfer the slashed amount to a treasury.
+        // For MVP, we'll just leave it in the contract but unassigned, or burn it.
+        let usdc_token_addr: Address = env.storage().persistent().get(&DataKey::UsdcToken).unwrap();
+        let token_client = token::Client::new(&env, &usdc_token_addr);
+        token_client.burn(&env.current_contract_address(), &actual_slash);
     }
 
     /// Read-only function for the Aegis Agent to check if a publisher is trusted
