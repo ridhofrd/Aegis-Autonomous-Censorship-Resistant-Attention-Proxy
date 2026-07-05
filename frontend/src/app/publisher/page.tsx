@@ -144,12 +144,28 @@ export default function PublisherDashboard() {
     if (!articleUrl || !articleTitle) return;
 
     setIsPublishing(true);
-    // Simulate API delay for Aegis AI indexing the article
-    await new Promise(res => setTimeout(res, 2000));
-    setIsPublishing(false);
-    setArticleUrl("");
-    setArticleTitle("");
-    alert("Article successfully ingested! The Aegis AI Agent has indexed your content for the Information Proxy.");
+    const topicsInput = (document.getElementById('publisherTopics') as HTMLInputElement)?.value || 'General';
+
+    try {
+      await fetch('/api/publishers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: publicKey,
+          name: articleTitle,
+          rssUrl: articleUrl,
+          topics: topicsInput
+        })
+      });
+      alert("Successfully registered! Your publication feed is now active in the Aegis ecosystem.");
+      setArticleUrl("");
+      setArticleTitle("");
+    } catch (e) {
+      console.error(e);
+      alert("Failed to register publication.");
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
@@ -244,13 +260,21 @@ export default function PublisherDashboard() {
 
             {/* Metrics Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="clean-card p-6 border-t-4 border-t-green-500">
-                <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Total Earned</h3>
-                <div className="flex items-end gap-2">
-                  <span className="text-4xl font-bold">{earnings.totalUsdc}</span>
-                  <span className="text-lg font-semibold text-[var(--text-secondary)] mb-1">USDC</span>
+              <div className="clean-card p-6 border-t-4 border-t-green-500 flex flex-col justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Total Earned</h3>
+                  <div className="flex items-end gap-2">
+                    <span className="text-4xl font-bold">{earnings.totalUsdc}</span>
+                    <span className="text-lg font-semibold text-[var(--text-secondary)] mb-1">USDC</span>
+                  </div>
+                  <p className="text-xs text-green-500 mt-2 font-medium">Funds stream directly to your contract</p>
                 </div>
-                <p className="text-xs text-green-500 mt-2 font-medium">Funds stream directly to your wallet</p>
+                <button 
+                  onClick={() => alert("Withdrawal requested! Interacting with Soroban Attention Vault...")}
+                  className="mt-4 py-1.5 px-3 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 rounded-md text-sm font-bold border border-green-500/20 transition-colors w-full text-center"
+                >
+                  Withdraw USDC
+                </button>
               </div>
               <div className="clean-card p-6 border-t-4 border-t-[var(--primary)]">
                 <h3 className="text-sm font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Articles Indexed</h3>
@@ -273,33 +297,45 @@ export default function PublisherDashboard() {
             <div className="clean-card p-8 border border-[var(--primary)]/20 shadow-lg shadow-[var(--primary)]/5">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold">Publish to Aegis AI</h2>
-                  <p className="text-sm text-[var(--text-secondary)]">Submit your article URL for the AI Agent to ingest, verify, and index.</p>
+                  <h2 className="text-xl font-bold">Register Publication</h2>
+                  <p className="text-sm text-[var(--text-secondary)]">Link your RSS feed. Aegis will automatically index your content into the ecosystem.</p>
                 </div>
               </div>
 
               <form onSubmit={handlePublish} className="flex flex-col gap-5">
-                <div>
-                  <label className="block text-sm font-bold mb-2">Article Title</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="E.g., The Truth About Global Supply Chains"
-                    className="w-full p-3 bg-black/5 dark:bg-white/5 border border-[var(--card-border)] rounded-lg text-sm text-[var(--text-color)] outline-none focus:border-[var(--primary)] transition-colors"
-                    value={articleTitle}
-                    onChange={(e) => setArticleTitle(e.target.value)}
-                    disabled={isPublishing}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-bold mb-2">Publication Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="E.g., The Decentralized Wire"
+                      className="w-full p-3 bg-black/5 dark:bg-white/5 border border-[var(--card-border)] rounded-lg text-sm text-[var(--text-color)] outline-none focus:border-[var(--primary)] transition-colors"
+                      value={articleTitle}
+                      onChange={(e) => setArticleTitle(e.target.value)}
+                      disabled={isPublishing}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold mb-2">Topics (Comma separated)</label>
+                    <input
+                      type="text"
+                      placeholder="Crypto, Tech, Web3"
+                      className="w-full p-3 bg-black/5 dark:bg-white/5 border border-[var(--card-border)] rounded-lg text-sm text-[var(--text-color)] outline-none focus:border-[var(--primary)] transition-colors"
+                      id="publisherTopics"
+                      disabled={isPublishing}
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold mb-2">Article URL</label>
+                  <label className="block text-sm font-bold mb-2">RSS Feed URL</label>
                   <input
                     type="url"
                     required
-                    placeholder="https://yourblog.com/article"
+                    placeholder="https://yourblog.com/rss.xml"
                     className="w-full p-3 bg-black/5 dark:bg-white/5 border border-[var(--card-border)] rounded-lg text-sm text-[var(--text-color)] outline-none focus:border-[var(--primary)] transition-colors font-mono"
                     value={articleUrl}
                     onChange={(e) => setArticleUrl(e.target.value)}
@@ -312,7 +348,7 @@ export default function PublisherDashboard() {
                     className="btn-primary px-8 py-3 w-full sm:w-auto font-bold tracking-wide"
                     disabled={isPublishing}
                   >
-                    {isPublishing ? "Indexing into Aegis AI..." : "Submit to Knowledge Base"}
+                    {isPublishing ? "Registering..." : "Register Publication Feed"}
                   </button>
                 </div>
               </form>

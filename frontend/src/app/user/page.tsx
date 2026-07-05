@@ -121,6 +121,7 @@ export default function UnifiedDashboard() {
   const [activeTopic, setActiveTopic] = useState<string>("All");
   const [subscribedIds, setSubscribedIds] = useState<string[]>([]);
   const [customRssFeeds, setCustomRssFeeds] = useState<RssFeed[]>(DEFAULT_RSS_FEEDS);
+  const [directoryPublishers, setDirectoryPublishers] = useState<PublisherProfile[]>(MOCK_PUBLISHERS);
   const [newRssName, setNewRssName] = useState("");
   const [newRssUrl, setNewRssUrl] = useState("");
 
@@ -167,6 +168,31 @@ export default function UnifiedDashboard() {
   useEffect(() => {
     if (activeTab === "chat") chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping, activeTab]);
+
+  useEffect(() => {
+    async function fetchPublishers() {
+      try {
+        const res = await fetch("/api/publishers");
+        const data = await res.json();
+        if (data.publishers && data.publishers.length > 0) {
+          const dbPublishers = data.publishers.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            domain: new URL(p.rssUrl).hostname,
+            topics: p.topics.split(",").map((t: string) => t.trim()),
+            isTrusted: true,
+            description: "Registered via Aegis Publisher Portal.",
+            publisherAddress: p.walletAddress
+          }));
+          // Combine with mock publishers or replace. Let's combine for demo purposes, putting new ones first.
+          setDirectoryPublishers([...dbPublishers, ...MOCK_PUBLISHERS]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch publishers", error);
+      }
+    }
+    fetchPublishers();
+  }, []);
 
   useEffect(() => {
     if (activeTab === "automations") {
@@ -452,8 +478,8 @@ export default function UnifiedDashboard() {
   };
 
   const filteredPublishers = activeTopic === "All"
-    ? MOCK_PUBLISHERS
-    : MOCK_PUBLISHERS.filter(pub => pub.topics.includes(activeTopic));
+    ? directoryPublishers
+    : directoryPublishers.filter(pub => pub.topics.includes(activeTopic));
 
   return (
     <div className="min-h-screen flex flex-col items-center relative overflow-hidden bg-[var(--background)]">

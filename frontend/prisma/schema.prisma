@@ -54,3 +54,12 @@ model Article {
   jobDigestId    String
   jobDigest      JobDigest @relation(fields: [jobDigestId], references: [id])
 }
+
+model PublisherFeed {
+  id              String         @id @default(uuid())
+  walletAddress   String
+  name            String
+  rssUrl          String
+  topics          String         // Stored as comma-separated values
+  createdAt       DateTime       @default(now())
+}
