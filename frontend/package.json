@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:cron": "tsx src/cron-worker.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
-    "@prisma/client": "^7.8.0",
+    "@prisma/client": "^5.22.0",
     "@stellar/freighter-api": "^6.0.1",
     "attention_vault": "file:src/contracts/attention_vault",
     "next": "16.2.10",
@@ -26,7 +27,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
-    "prisma": "^7.8.0",
+    "prisma": "^5.22.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.0",
     "typescript": "^5"
