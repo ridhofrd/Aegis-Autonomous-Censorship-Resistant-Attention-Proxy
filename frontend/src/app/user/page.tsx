@@ -33,6 +33,26 @@ interface Message {
   citations?: Citation[];
 }
 
+interface PublisherProfile {
+  id: string;
+  name: string;
+  domain: string;
+  topics: string[];
+  isTrusted: boolean;
+  description: string;
+}
+
+const MOCK_PUBLISHERS: PublisherProfile[] = [
+  { id: "pub-1", name: "CipherBlog", domain: "cipherblog.net", topics: ["Tech", "Privacy"], isTrusted: true, description: "Independent analysis on surveillance and data rights." },
+  { id: "pub-2", name: "OnChain Observer", domain: "onchainobserver.io", topics: ["Finance", "Crypto"], isTrusted: true, description: "Uncovering institutional flows in decentralized markets." },
+  { id: "pub-3", name: "Decentralized Post", domain: "dpost.org", topics: ["Politics", "Tech"], isTrusted: true, description: "Grassroots impacts of technological policy changes." },
+  { id: "pub-4", name: "Whistleblower X", domain: "anon-leak.net", topics: ["Politics", "Privacy"], isTrusted: false, description: "Anonymous drops of regulatory internal memos." },
+  { id: "pub-5", name: "ZeroKnowledge News", domain: "zkn.dev", topics: ["Crypto", "Tech"], isTrusted: true, description: "The premier source for ZK rollups and cryptography." },
+  { id: "pub-6", name: "Alt-Finance Daily", domain: "altfin.co", topics: ["Finance", "Politics"], isTrusted: true, description: "Deep dives into macroeconomic shifts and alternative assets." },
+];
+
+const TOPICS = ["All", "Tech", "Privacy", "Finance", "Crypto", "Politics"];
+
 export default function UnifiedDashboard() {
   const { theme, toggleTheme } = useTheme();
   
@@ -40,7 +60,7 @@ export default function UnifiedDashboard() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
   
   // UI State
-  const [activeTab, setActiveTab] = useState<"feed" | "chat">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "chat" | "directory">("feed");
 
   // Feed State
   const [provider, setProvider] = useState<string>("nytimes");
@@ -57,6 +77,10 @@ export default function UnifiedDashboard() {
   ]);
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Directory & Subscription State
+  const [activeTopic, setActiveTopic] = useState<string>("All");
+  const [subscribedIds, setSubscribedIds] = useState<string[]>([]);
 
   // Wallet Connection
   const connectWallet = async () => {
@@ -140,6 +164,16 @@ export default function UnifiedDashboard() {
     alert(`Mock: Sending 0.1 USDC to ${pub} via your Attention Vault!`);
   };
 
+  const toggleSubscription = (pubId: string) => {
+    setSubscribedIds((prev) => 
+      prev.includes(pubId) ? prev.filter(id => id !== pubId) : [...prev, pubId]
+    );
+  };
+
+  const filteredPublishers = activeTopic === "All" 
+    ? MOCK_PUBLISHERS 
+    : MOCK_PUBLISHERS.filter(pub => pub.topics.includes(activeTopic));
+
   return (
     <div className="min-h-screen flex flex-col items-center relative overflow-hidden bg-[var(--background)]">
       {/* Header */}
@@ -170,27 +204,33 @@ export default function UnifiedDashboard() {
           <div className="w-16 h-16 bg-[var(--primary)] text-white rounded-2xl flex items-center justify-center text-3xl mb-6 shadow-lg shadow-[var(--primary)]/20">A</div>
           <h1 className="text-4xl font-bold mb-4">Your Private Information Proxy</h1>
           <p className="text-lg text-[var(--text-secondary)] mb-8 max-w-md">
-            Connect your wallet to access your curated news feed and the active AI investigator.
+            Connect your wallet to access your curated news feed, discover publishers, and investigate with AI.
           </p>
           <button onClick={connectWallet} className="btn-primary px-8 py-3 text-lg rounded-xl shadow-lg shadow-[var(--primary)]/20 hover:scale-105 transition-transform">
             Connect Freighter Wallet
           </button>
         </div>
       ) : (
-        <main className="flex-1 w-full max-w-4xl mx-auto flex flex-col relative pb-32 pt-8 px-4">
+        <main className="flex-1 w-full max-w-5xl mx-auto flex flex-col relative pb-32 pt-8 px-4">
           
           {/* Tab Selector */}
-          <div className="flex justify-center mb-8">
-            <div className="flex bg-[var(--card-border)] rounded-full p-1 shadow-sm">
+          <div className="flex justify-center mb-10">
+            <div className="flex bg-[var(--card-border)] rounded-full p-1 shadow-sm overflow-x-auto">
               <button 
                 onClick={() => setActiveTab("feed")}
-                className={`px-6 py-2 text-sm font-bold rounded-full transition-all ${activeTab === "feed" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
+                className={`px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "feed" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
               >
                 Curated Feed
               </button>
               <button 
+                onClick={() => setActiveTab("directory")}
+                className={`px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "directory" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
+              >
+                Publishers Directory
+              </button>
+              <button 
                 onClick={() => setActiveTab("chat")}
-                className={`flex items-center gap-2 px-6 py-2 text-sm font-bold rounded-full transition-all ${activeTab === "chat" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
+                className={`flex items-center gap-2 px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "chat" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
               >
                 ✨ AI Investigator
               </button>
@@ -221,7 +261,7 @@ export default function UnifiedDashboard() {
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)]"></div>
                 </div>
               ) : (
-                <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
                   {articles.map((article) => (
                     <div key={article.id} className="clean-card p-6 flex flex-col md:flex-row gap-6 transition-all hover:border-[var(--primary)]">
                       <div className="flex-1">
@@ -260,9 +300,97 @@ export default function UnifiedDashboard() {
             </div>
           )}
 
-          {/* === TAB 2: AI CHAT INVESTIGATOR === */}
+          {/* === TAB 2: PUBLISHERS DIRECTORY === */}
+          {activeTab === "directory" && (
+            <div className="flex flex-col animate-fadeIn">
+              <div className="mb-8 text-center max-w-2xl mx-auto">
+                <h1 className="text-3xl font-bold mb-3">Discover Independent Publishers</h1>
+                <p className="text-[var(--text-secondary)] mb-8">
+                  Browse verified content creators. Subscribe to automatically allocate your Attention Vault funds when you consume their premium articles.
+                </p>
+
+                {/* Topic Filters */}
+                <div className="flex flex-wrap justify-center gap-2">
+                  {TOPICS.map(topic => (
+                    <button
+                      key={topic}
+                      onClick={() => setActiveTopic(topic)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-bold transition-colors ${
+                        activeTopic === topic 
+                          ? "bg-[var(--primary)] text-white" 
+                          : "bg-[var(--card-border)] text-[var(--text-secondary)] hover:text-[var(--text-color)] hover:bg-[var(--primary)]/20"
+                      }`}
+                    >
+                      {topic}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Publisher Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredPublishers.map(pub => {
+                  const isSubscribed = subscribedIds.includes(pub.id);
+                  return (
+                    <div key={pub.id} className={`clean-card flex flex-col h-full border-2 transition-all ${isSubscribed ? "border-[var(--primary)] shadow-lg shadow-[var(--primary)]/10" : "border-transparent"}`}>
+                      <div className="p-6 flex-1">
+                        <div className="flex justify-between items-start mb-3">
+                          <h2 className="text-xl font-bold leading-tight">{pub.name}</h2>
+                          {pub.isTrusted ? (
+                            <span className="text-[10px] font-bold px-2 py-1 bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20 rounded flex items-center gap-1 shrink-0">
+                              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path></svg>
+                              ZK Verified
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-1 bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border border-yellow-500/20 rounded shrink-0">
+                              Unverified
+                            </span>
+                          )}
+                        </div>
+                        <a href={`https://${pub.domain}`} target="_blank" rel="noopener noreferrer" className="text-sm font-mono text-[var(--text-secondary)] hover:text-[var(--primary)] hover:underline mb-4 block">
+                          {pub.domain}
+                        </a>
+                        <p className="text-sm text-[var(--text-color)] mb-6 opacity-90 line-clamp-3">
+                          {pub.description}
+                        </p>
+                        <div className="flex flex-wrap gap-2 mt-auto">
+                          {pub.topics.map(t => (
+                            <span key={t} className="text-[10px] uppercase tracking-wider font-bold px-2 py-1 bg-[var(--card-border)] rounded-sm text-[var(--text-secondary)]">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="border-t border-[var(--card-border)] p-4 bg-black/[0.02] dark:bg-white/[0.02]">
+                        <button 
+                          onClick={() => toggleSubscription(pub.id)}
+                          className={`w-full py-2.5 rounded-lg font-bold text-sm transition-all flex justify-center items-center gap-2 ${
+                            isSubscribed 
+                              ? "bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/30" 
+                              : "bg-[var(--primary)] text-white hover:opacity-90 shadow-md"
+                          }`}
+                        >
+                          {isSubscribed ? (
+                            <>
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                              Subscribed
+                            </>
+                          ) : (
+                            "Subscribe"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* === TAB 3: AI CHAT INVESTIGATOR === */}
           {activeTab === "chat" && (
-            <div className="flex flex-col flex-1 h-[65vh] animate-fadeIn relative">
+            <div className="flex flex-col flex-1 h-[65vh] animate-fadeIn relative max-w-4xl mx-auto w-full">
               <div className="flex-1 overflow-y-auto p-2 md:p-6 flex flex-col gap-8 scroll-smooth pb-32">
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`flex w-full ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
