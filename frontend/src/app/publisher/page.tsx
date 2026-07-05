@@ -66,7 +66,7 @@ export default function PublisherDashboard() {
       const data = await res.json();
       if (data.ipfsHash) {
         // Update local state to reflect the pin
-        setPublishedArticles(prev => prev.map(a => 
+        setPublishedArticles(prev => prev.map(a =>
           a.id === article.id ? { ...a, ipfsHash: data.ipfsHash } : a
         ));
         alert("Article pinned to IPFS successfully! CID: " + data.ipfsHash);
@@ -318,7 +318,7 @@ export default function PublisherDashboard() {
                   </div>
                   <p className="text-xs text-green-500 mt-2 font-medium">Funds stream directly to your contract</p>
                 </div>
-                <button 
+                <button
                   onClick={() => alert("Withdrawal requested! Interacting with Soroban Attention Vault...")}
                   className="mt-4 py-1.5 px-3 bg-green-500/10 hover:bg-green-500/20 text-green-600 dark:text-green-400 rounded-md text-sm font-bold border border-green-500/20 transition-colors w-full text-center"
                 >
@@ -427,7 +427,7 @@ export default function PublisherDashboard() {
                       <p className="text-sm font-mono text-[var(--text-secondary)] mb-4">
                         Indexed: {new Date(article.aegisIndexDate).toLocaleString()} • Ingested {article.timesIngested} times
                       </p>
-                      
+
                       <div className="p-4 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-lg mb-4">
                         <div className="flex items-center gap-2 mb-2 text-[var(--primary)]">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
