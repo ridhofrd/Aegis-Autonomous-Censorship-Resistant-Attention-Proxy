@@ -43,7 +43,7 @@ model JobDigest {
 }
 
 model Article {
-  id             String    @id @default(cuid())
+  id             String     @id @default(cuid())
   title          String
   link           String
   pubDate        String
@@ -51,8 +51,9 @@ model Article {
   publisher      String
   domain         String
   aiSummary      String
-  jobDigestId    String
-  jobDigest      JobDigest @relation(fields: [jobDigestId], references: [id])
+  ipfsHash       String?
+  jobDigestId    String?
+  jobDigest      JobDigest? @relation(fields: [jobDigestId], references: [id])
 }
 
 model PublisherFeed {

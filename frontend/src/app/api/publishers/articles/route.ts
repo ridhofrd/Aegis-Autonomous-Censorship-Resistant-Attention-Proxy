@@ -28,21 +28,24 @@ export async function GET(request: Request) {
     await Promise.all(publisherFeeds.map(async (feedInfo) => {
       try {
         const feed = await parser.parseURL(feedInfo.rssUrl);
-        const articles = feed.items.slice(0, 5).map((item, index) => ({
-          id: item.guid || item.link || Math.random().toString(),
-          title: item.title,
-          link: item.link,
-          pubDate: item.pubDate,
-          contentSnippet: item.contentSnippet || "No description available.",
-          publisher: feedInfo.name,
-          domain: new URL(feedInfo.rssUrl).hostname,
-          
-          // Additional Aegis ecosystem info about the article:
-          aegisIndexDate: new Date(Date.now() - (index * 1000 * 60 * 60)).toISOString(),
-          trustScore: Math.floor(Math.random() * 10) + 90, // 90-99 score
-          timesIngested: Math.floor(Math.random() * 50) + 5,
-          aiSummary: `AI Verified: The contents of this article have been cryptographically hashed and indexed. Topics detected: ${feedInfo.topics}.`
-        }));
+        const articles = feed.items.slice(0, 5).map((item, index) => {
+          const link = item.link || "";
+          return {
+            id: item.guid || link || Math.random().toString(),
+            title: item.title,
+            link: link,
+            pubDate: item.pubDate,
+            contentSnippet: item.contentSnippet || "No description available.",
+            publisher: feedInfo.name,
+            domain: new URL(feedInfo.rssUrl).hostname,
+            
+            // Additional Aegis ecosystem info about the article:
+            aegisIndexDate: new Date(Date.now() - (index * 1000 * 60 * 60)).toISOString(),
+            trustScore: Math.floor(Math.random() * 10) + 90, // 90-99 score
+            timesIngested: Math.floor(Math.random() * 50) + 5,
+            aiSummary: `AI Verified: The contents of this article have been cryptographically hashed and indexed. Topics detected: ${feedInfo.topics}.`
+          };
+        });
         allArticles.push(...articles);
       } catch (e) {
         console.error(`Failed to parse feed ${feedInfo.rssUrl}`, e);
@@ -66,6 +69,22 @@ export async function GET(request: Request) {
           });
         }
       }
+    }));
+
+    // Fetch IPFS hashes from local DB
+    const dbArticles = await prisma.article.findMany({
+      where: {
+        link: { in: allArticles.map(a => a.link) },
+        ipfsHash: { not: null }
+      },
+      select: { link: true, ipfsHash: true }
+    });
+
+    const ipfsMap = new Map(dbArticles.map(a => [a.link, a.ipfsHash]));
+
+    allArticles = allArticles.map(a => ({
+      ...a,
+      ipfsHash: ipfsMap.get(a.link) || null
     }));
 
     // Sort combined articles by date

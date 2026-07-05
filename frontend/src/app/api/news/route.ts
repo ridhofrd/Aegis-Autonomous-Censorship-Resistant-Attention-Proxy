@@ -75,12 +75,25 @@ export async function GET(request: Request) {
       return dateB - dateA;
     });
 
-    // 2. Mock AI Filtering Layer
+    // 2. Fetch IPFS hashes from local DB
+    const { prisma } = await import("@/lib/prisma");
+    const dbArticles = await prisma.article.findMany({
+      where: {
+        link: { in: allArticles.map(a => a.link) },
+        ipfsHash: { not: null }
+      },
+      select: { link: true, ipfsHash: true }
+    });
+
+    const ipfsMap = new Map(dbArticles.map(a => [a.link, a.ipfsHash]));
+
+    // 3. Mock AI Filtering Layer
     const aiFilteredArticles = allArticles.map(article => ({
       ...article,
       aiSummary: `AI Summary: ${article.contentSnippet?.substring(0, 150)}... This article discusses recent events with high factual consistency.`,
       qualityScore: Math.floor(Math.random() * 15) + 85, // 85-99 Score
-      isTrusted: true // 3. Mock Web3 Trust
+      isTrusted: true, // 3. Mock Web3 Trust
+      ipfsHash: ipfsMap.get(article.link) || null
     }));
 
     return NextResponse.json({ articles: aiFilteredArticles });

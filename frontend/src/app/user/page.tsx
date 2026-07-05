@@ -20,6 +20,7 @@ interface Article {
   qualityScore: number;
   isTrusted: boolean;
   publisherAddress?: string; // We'll map publishers to stellar addresses
+  ipfsHash?: string | null;
 }
 
 interface Citation {
@@ -682,6 +683,12 @@ export default function UnifiedDashboard() {
                             </span>
                           )}
                           <span className="text-xs text-[var(--text-secondary)]">{new Date(article.pubDate).toLocaleDateString()}</span>
+                          {article.ipfsHash && (
+                            <span className="text-xs font-semibold px-2 py-1 bg-green-500/10 text-green-500 rounded flex items-center gap-1 ml-auto">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                              Archived on IPFS
+                            </span>
+                          )}
                         </div>
                         <a href={article.link} target="_blank" rel="noopener noreferrer" className="block hover:underline">
                           <h2 className="text-xl font-bold mb-2">{article.title}</h2>

@@ -56,6 +56,29 @@ export default function PublisherDashboard() {
     }
   };
 
+  const handlePinToIPFS = async (article: any) => {
+    try {
+      const res = await fetch("/api/ipfs/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ article })
+      });
+      const data = await res.json();
+      if (data.ipfsHash) {
+        // Update local state to reflect the pin
+        setPublishedArticles(prev => prev.map(a => 
+          a.id === article.id ? { ...a, ipfsHash: data.ipfsHash } : a
+        ));
+        alert("Article pinned to IPFS successfully! CID: " + data.ipfsHash);
+      } else {
+        alert("Failed to pin: " + data.error);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to pin article to IPFS.");
+    }
+  };
+
   const fetchTrustStatus = async (address: string) => {
     try {
       const trustRegistry = new TrustRegistry({
@@ -405,12 +428,28 @@ export default function PublisherDashboard() {
                         Indexed: {new Date(article.aegisIndexDate).toLocaleString()} • Ingested {article.timesIngested} times
                       </p>
                       
-                      <div className="p-4 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-lg">
+                      <div className="p-4 bg-[var(--primary)]/5 border border-[var(--primary)]/20 rounded-lg mb-4">
                         <div className="flex items-center gap-2 mb-2 text-[var(--primary)]">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                           <span className="text-xs font-bold uppercase tracking-wider">Aegis AI Summary</span>
                         </div>
                         <p className="text-sm italic text-[var(--text-color)]">{article.aiSummary}</p>
+                      </div>
+
+                      <div className="flex justify-end border-t border-[var(--card-border)] pt-4 mt-2">
+                        {article.ipfsHash ? (
+                          <div className="flex items-center gap-2 text-sm text-green-500 font-bold bg-green-500/10 px-3 py-1.5 rounded-md">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                            Archived on IPFS
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => handlePinToIPFS(article)}
+                            className="text-sm font-bold bg-black/5 dark:bg-white/5 hover:bg-[var(--primary)]/20 hover:text-[var(--primary)] px-4 py-2 rounded-md transition-colors"
+                          >
+                            Pin to IPFS
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
