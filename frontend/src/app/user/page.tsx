@@ -98,7 +98,7 @@ export default function UnifiedDashboard() {
   const [publicKey, setPublicKey] = useState<string | null>(null);
 
   // UI State
-  const [activeTab, setActiveTab] = useState<"feed" | "curator" | "directory" | "chat" | "persona" | "vault">("feed");
+  const [activeTab, setActiveTab] = useState<"feed" | "curator" | "directory" | "chat" | "persona" | "automations" | "vault">("feed");
 
   // Feed State
   const [provider, setProvider] = useState<string>("nytimes");
@@ -133,6 +133,14 @@ export default function UnifiedDashboard() {
   const [curatorArticles, setCuratorArticles] = useState<Article[]>([]);
   const [loadingCurator, setLoadingCurator] = useState(false);
 
+  // Automations State
+  const [automations, setAutomations] = useState<any[]>([]);
+  const [loadingAutomations, setLoadingAutomations] = useState(false);
+  const [newAutoName, setNewAutoName] = useState("");
+  const [newAutoCron, setNewAutoCron] = useState("0 7 * * *");
+  const [newAutoPersonaId, setNewAutoPersonaId] = useState(personas[0].id);
+  const [newAutoFeedIds, setNewAutoFeedIds] = useState<string[]>([]);
+
   // Vault Management State
   const [vaultLoading, setVaultLoading] = useState(false);
   const [depositAmount, setDepositAmount] = useState("10");
@@ -159,6 +167,55 @@ export default function UnifiedDashboard() {
   useEffect(() => {
     if (activeTab === "chat") chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "automations") {
+      fetchAutomations();
+    }
+  }, [activeTab]);
+
+  const fetchAutomations = async () => {
+    setLoadingAutomations(true);
+    try {
+      const res = await fetch("/api/automations");
+      const data = await res.json();
+      if (data.automations) {
+        setAutomations(data.automations);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAutomations(false);
+    }
+  };
+
+  const handleCreateAutomation = async () => {
+    if (!newAutoName || newAutoFeedIds.length === 0) return alert("Please provide a name and select at least one feed.");
+    
+    setLoadingAutomations(true);
+    const selectedPersona = personas.find(p => p.id === newAutoPersonaId);
+    const selectedFeeds = customRssFeeds.filter(f => newAutoFeedIds.includes(f.id));
+
+    try {
+      await fetch("/api/automations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newAutoName,
+          cronSchedule: newAutoCron,
+          persona: selectedPersona,
+          feeds: selectedFeeds
+        })
+      });
+      setNewAutoName("");
+      setNewAutoFeedIds([]);
+      fetchAutomations();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingAutomations(false);
+    }
+  };
 
   useEffect(() => {
     if (!publicKey || activeTab !== "feed") return;
@@ -469,6 +526,12 @@ export default function UnifiedDashboard() {
                 className={`px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "persona" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
               >
                 Personas
+              </button>
+              <button
+                onClick={() => setActiveTab("automations")}
+                className={`px-6 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === "automations" ? "bg-[var(--primary)] text-white shadow-md" : "text-[var(--text-color)] hover:bg-black/[0.05] dark:hover:bg-white/[0.05]"}`}
+              >
+                Automations
               </button>
               <button
                 onClick={() => setActiveTab("vault")}
@@ -1009,6 +1072,114 @@ export default function UnifiedDashboard() {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+          {/* === TAB 7: AUTOMATIONS === */}
+          {activeTab === "automations" && (
+            <div className="flex flex-col animate-fadeIn w-full max-w-4xl mx-auto">
+              <div className="mb-8 text-center">
+                <h1 className="text-3xl font-bold mb-3">Cron Automations</h1>
+                <p className="text-[var(--text-secondary)]">
+                  Create multiple custom cron jobs. Map specific Personas to specific Feeds and schedule them to run natively on the backend.
+                </p>
+              </div>
+
+              <div className="clean-card p-6 mb-8 border border-[var(--primary)]/30">
+                <h2 className="text-xl font-bold mb-4">Create New Automation</h2>
+                <div className="flex flex-col gap-4">
+                  <input
+                    type="text"
+                    value={newAutoName}
+                    onChange={e => setNewAutoName(e.target.value)}
+                    placeholder="Job Name (e.g., Morning Crypto Brief)"
+                    className="w-full bg-transparent border border-[var(--card-border)] rounded-lg px-4 py-2"
+                  />
+                  
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="block text-sm text-[var(--text-secondary)] mb-1">Schedule (Cron)</label>
+                      <input
+                        type="text"
+                        value={newAutoCron}
+                        onChange={e => setNewAutoCron(e.target.value)}
+                        placeholder="0 7 * * *"
+                        className="w-full bg-transparent border border-[var(--card-border)] rounded-lg px-4 py-2 font-mono text-sm"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm text-[var(--text-secondary)] mb-1">AI Persona</label>
+                      <select 
+                        value={newAutoPersonaId}
+                        onChange={e => setNewAutoPersonaId(e.target.value)}
+                        className="w-full bg-transparent border border-[var(--card-border)] rounded-lg px-4 py-2"
+                      >
+                        {personas.map(p => (
+                          <option key={p.id} value={p.id} className="bg-[var(--card-bg)]">{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-[var(--text-secondary)] mb-2">Select Target Feeds</label>
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 border border-[var(--card-border)] rounded-lg">
+                      {customRssFeeds.map(feed => (
+                        <label key={feed.id} className="flex items-center gap-2 cursor-pointer p-2 hover:bg-black/[0.05] dark:hover:bg-white/[0.05] rounded">
+                          <input 
+                            type="checkbox" 
+                            checked={newAutoFeedIds.includes(feed.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) setNewAutoFeedIds(prev => [...prev, feed.id]);
+                              else setNewAutoFeedIds(prev => prev.filter(id => id !== feed.id));
+                            }}
+                          />
+                          <span className="text-sm truncate">{feed.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={handleCreateAutomation}
+                    disabled={loadingAutomations}
+                    className="btn-primary py-2 mt-2"
+                  >
+                    {loadingAutomations ? "Saving..." : "Save Automation Job"}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-bold mb-4">Active Jobs</h2>
+                {loadingAutomations && automations.length === 0 ? (
+                  <div className="flex justify-center py-10"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)]"></div></div>
+                ) : automations.length === 0 ? (
+                  <div className="text-center py-10 text-[var(--text-secondary)]">No automations configured yet.</div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {automations.map(job => (
+                      <div key={job.id} className="clean-card p-5">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-bold text-xl">{job.name}</h3>
+                          <span className="font-mono text-xs px-2 py-1 bg-black/10 dark:bg-white/10 rounded">
+                            {job.cronSchedule}
+                          </span>
+                        </div>
+                        <p className="text-sm text-[var(--text-secondary)] mb-3">
+                          <span className="font-bold text-[var(--primary)]">{job.persona?.name}</span> mapping to {job.feeds?.length} feeds.
+                        </p>
+                        <div className="text-xs text-[var(--text-secondary)]">
+                          {job.digests && job.digests.length > 0 ? (
+                            <span className="text-green-500">Last run: {new Date(job.digests[0].createdAt).toLocaleString()} ({job.digests[0].articles?.length} articles generated)</span>
+                          ) : (
+                            <span className="italic">Awaiting first scheduled run...</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
