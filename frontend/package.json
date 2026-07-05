@@ -9,13 +9,15 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@prisma/client": "^7.8.0",
     "@stellar/freighter-api": "^6.0.1",
+    "attention_vault": "file:src/contracts/attention_vault",
     "next": "16.2.10",
+    "node-cron": "^4.5.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "rss-parser": "^3.13.0",
-    "trust_registry": "file:src/contracts/trust_registry",
-    "attention_vault": "file:src/contracts/attention_vault"
+    "trust_registry": "file:src/contracts/trust_registry"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -24,6 +26,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "prisma": "^7.8.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
